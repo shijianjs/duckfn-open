@@ -1,0 +1,277 @@
+#!/usr/bin/env bash
+#
+# 发版辅助脚本，由 Justfile 的 release_* recipe 调用（完整流程见根目录 AGENTS.md）。
+#
+# 之所以有这么一个脚本，而不是把逻辑直接写在 Justfile 里：just 的 shebang recipe 在 Windows 上需要
+# cygpath 来翻译解释器路径，而 Git Bash 并不提供它。改成「Justfile 里一行 `bash scripts/release.sh …`」
+# 之后，Windows（Git Bash）与 Linux / macOS 都走同一条路径。
+#
+# Release helper called by the Justfile's release_* recipes (the full flow is in AGENTS.md). It is a
+# script rather than raw Justfile lines because just's shebang recipes need `cygpath` to translate the
+# interpreter path on Windows, which Git Bash does not ship; a one-line `bash scripts/release.sh …`
+# behaves the same on Windows (Git Bash) and on Linux / macOS.
+#
+# 用法 / Usage：
+#   bash scripts/release.sh bump <new-version>   # 项目与文档里的版本号全量替换
+#   bash scripts/release.sh dev  <new-version>   # 只把 Cargo 清单切到开发版本
+#   bash scripts/release.sh tag  <version>       # 打 tag 并推送，触发 CI 发版
+set -euo pipefail
+
+# 替换「文档 / README / CI 注释里的版本号」时跳过的路径。
+#
+# 排除项的来历：Cargo.toml 单独处理（[package] 段那一行，见 set_package_version），Cargo.lock 归
+# `cargo update`，test/ 里的版本号是断言的期望值而不是本项目的版本，AGENTS.md 与本脚本里的版本号只是
+# 示例。`community-extension/` **不在**排除列表里：那里 description.yml 的 `version` 就该跟着发布版本
+# 走（`repo.ref` 那个提交 SHA 仍然要人工改，脚本认不出来）。
+#
+# 文档站那几处单独说：package-lock.json 里 `0.1.0` 之类的字符串是依赖自己的版本号，动了会让
+# `npm ci` 对不上完整性校验；docs/docs 与 docs/i18n 的正文只写 {{EXTENSION_VERSION}} 占位符，真正的
+# 版本号集中在 docs/extension-version.ts，由下面单独替换（它可能是新建、还没被 git 跟踪的文件，
+# `git grep` 找不到）。
+#
+# Paths skipped when replacing the version inside docs / READMEs / CI comments. Cargo.toml is handled
+# separately (the `[package]` line, see set_package_version), Cargo.lock is `cargo update`'s job, the
+# versions inside test/ are asserted expectations rather than this project's version, and the ones in
+# AGENTS.md and this script are examples. `community-extension/` is deliberately *not* excluded: the
+# `version` in description.yml is supposed to follow the release (`repo.ref`, a commit SHA, still has to
+# be updated by hand — the script cannot guess it). The docs site is spelled out above: package-lock.json
+# would be corrupted, and the site's actual version number lives in the file below.
+DOC_EXCLUDES=(
+    ':(exclude)Cargo.toml'
+    ':(exclude)Cargo.lock'
+    ':(exclude)AGENTS.md'
+    ':(exclude)scripts'
+    ':(exclude)test'
+    ':(exclude)docs/package-lock.json'
+    ':(exclude)docs/docs'
+    ':(exclude)docs/i18n'
+    ':(exclude)docs/build'
+)
+
+# 文档站版本号的唯一来源（正文里只有占位符），由 cmd_bump 显式替换。
+#
+# The docs site's only copy of the version number (the pages hold placeholders); replaced explicitly by
+# cmd_bump.
+DOC_VERSION_FILE='docs/extension-version.ts'
+
+die() {
+    echo "error: $*" >&2
+    exit 1
+}
+
+# 读 [package] 段的 version（不要匹配到别的段，也不要匹配到依赖需求那一行）。
+#
+# Reads `version` from the `[package]` section only — no other section, and no dependency requirement.
+package_version() {
+    awk -F'"' '
+        /^\[package\]/ { in_section = 1; next }
+        /^\[/          { in_section = 0 }
+        in_section && /^version *=/ { print $2; exit }
+    ' Cargo.toml
+}
+
+# 只改 [package] 段的 version 那一行：本文件里还有别的同形字符串（依赖需求那一堆），
+# 不能整份文件全局替换。
+#
+# Rewrites the `version` line of the `[package]` section only: the file holds other strings of the same
+# shape (the dependency requirements), so a whole-file replacement would corrupt them.
+set_package_version() {
+    local new=$1 tmp
+    tmp=$(mktemp) || die "无法创建临时文件 / cannot create a temporary file"
+    awk -v new="$new" '
+        /^\[package\]/           { in_section = 1 }
+        /^\[/ && !/^\[package\]/ { in_section = 0 }
+        in_section && /^version *=/ { sub(/"[^"]*"/, "\"" new "\"") }
+        { print }
+    ' Cargo.toml > "$tmp"
+    mv "$tmp" Cargo.toml
+}
+
+# 最近一次版本 tag（去掉 v 前缀），也就是文档 / CI 注释里示例的版本。
+#
+# The most recent version tag (without the `v` prefix): the version shown in docs and CI comments.
+prev_release_version() {
+    local tag
+    tag=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+    echo "${tag#v}"
+}
+
+# 版本号变了，Cargo.lock 里本扩展自己那一条也要跟上（依赖的版本由 Cargo.toml 的语义化需求管着，
+# 这里不动它们）。包名与扩展名一致 —— 改过名的项目把 `-p` 后面的名字一起改掉（scripts/rename.sh 会做）。
+#
+# After a version change the lock entry for this extension has to follow (dependency versions are
+# governed by Cargo.toml's semver requirements and are left alone). The package name equals the
+# extension name — a renamed project must change the `-p` argument too (scripts/rename.sh does).
+sync_lock() {
+    cargo update -p my_extension
+}
+
+# 把版本号转成能放进正则的写法（只需转义点号）。
+#
+# Turns a version into a regex (only the dots need escaping).
+sed_escape() {
+    printf '%s' "$1" | sed 's/\./\\./g'
+}
+
+# 把文件里「独立出现」的版本号 $2 全部换成 $3。
+#
+# 不用 `sed s///`：那是子串替换，旧版本号是更长的版本号的前缀时会被改坏 ——
+# 旧版本 0.0.3 会命中正文里的历史版本引用（0.0.31 / 0.0.38 这类），
+# 换成 0.1.0 就成了 0.1.01 / 0.1.08。这里要求前后都不是数字或点，
+# 于是 0.0.31 不会被碰、10.0.3 也不会。
+#
+# Replaces standalone occurrences of version $2 with $3 in a file. A plain `sed s///` is a substring
+# replacement, so an old version that happens to be a prefix of a longer one corrupts it (0.0.3 inside
+# 0.0.31). Requiring a non-digit/non-dot on both sides avoids that without touching real version refs.
+replace_version_in_file() {
+    local file=$1 old=$2 new=$3 tmp
+    tmp=$(mktemp) || die "无法创建临时文件 / cannot create a temporary file"
+    awk -v old_ver="$old" -v new_ver="$new" '
+        function replace_version(line,   out, i, n, before, after, standalone) {
+            if (old_ver == "") return line
+            out = ""
+            n = length(old_ver)
+            while ((i = index(line, old_ver)) > 0) {
+                before = (i > 1) ? substr(line, i - 1, 1) : ""
+                after  = substr(line, i + n, 1)
+                standalone = (before !~ /[0-9.]/) && (after !~ /[0-9.]/)
+                out = out substr(line, 1, i - 1) (standalone ? new_ver : old_ver)
+                line = substr(line, i + n)
+            }
+            return out line
+        }
+        { print replace_version($0) }
+    ' "$file" > "$tmp"
+    mv "$tmp" "$file"
+}
+
+cmd_bump() {
+    local new=$1 dev doc tag files f v now
+
+    dev=$(package_version)
+    [ -n "$dev" ] || die "无法从 Cargo.toml 读取 [package] version"
+
+    tag=$(prev_release_version)
+    doc=$tag
+
+    if [ "$dev" = "$new" ] && { [ -z "$doc" ] || [ "$doc" = "$new" ]; }; then
+        die "版本号已经是 ${new}"
+    fi
+
+    # Cargo 清单：项目当前版本 -> 新版本
+    if [ "$dev" != "$new" ]; then
+        echo "Cargo 版本 ${dev} -> ${new}"
+        set_package_version "$new"
+    fi
+
+    # 文档 / README / CI 注释：最近一次 tag 的版本 -> 新版本（文件由 git grep 自动找出）。
+    # 还没有任何版本 tag 时这一步整体跳过：没有「上一个版本」可替换。
+    files=()
+    if [ -n "$doc" ] && [ "$doc" != "$new" ]; then
+        echo "文档 / CI 版本 ${doc} -> ${new}（取自 ${tag}）"
+        mapfile -t files < <(git grep -l -F -- "$doc" -- . "${DOC_EXCLUDES[@]}")
+        for f in "${files[@]}"; do
+            replace_version_in_file "$f" "$doc" "$new"
+            echo "  updated $f"
+        done
+
+        # 文档站的版本号文件单独替换（它在排除列表里，且可能是尚未被 git 跟踪的新文件）。
+        #
+        # The docs site's version file is replaced on its own: it is in the exclusion list, and it may
+        # not be tracked by git yet.
+        if [ -f "$DOC_VERSION_FILE" ]; then
+            replace_version_in_file "$DOC_VERSION_FILE" "$doc" "$new"
+            echo "  updated $DOC_VERSION_FILE"
+        fi
+    fi
+
+    sync_lock
+
+    echo
+    # 核对 Cargo.toml 只认 [package] 段那一行：对整份文件 grep 版本号会被依赖需求误报。
+    now=$(package_version)
+    [ "$now" = "$new" ] || die "Cargo.toml 的 [package] version 是 ${now}，期望 ${new}"
+    echo "Cargo.toml [package] version = ${now}"
+
+    # 旧版本号残留只在**刚改过的那些文档**里核对。
+    if [ "${#files[@]}" -gt 0 ]; then
+        echo "这些文件里残留的旧版本号（应为空 / should be empty）："
+        for v in "$dev" "$doc"; do
+            [ -n "$v" ] || continue
+            [ "$v" = "$new" ] && continue
+            # 与替换同样的边界口径：只报「独立出现」的旧版本号，别把 0.0.31 这类
+            # 更长的版本号误报成 0.0.3 的残留。
+            e=$(sed_escape "$v")
+            grep -n -E -- "(^|[^0-9.])${e}([^0-9.]|$)" "${files[@]}" || true
+        done
+    fi
+
+    echo
+    git --no-pager diff --stat
+}
+
+cmd_dev() {
+    local new=$1 old
+
+    old=$(package_version)
+    if [ -z "$old" ] || [ "$old" = "$new" ]; then
+        die "当前版本为 ${old:-未知}，无需切换"
+    fi
+
+    set_package_version "$new"
+    sync_lock
+
+    git --no-pager diff --stat
+    echo "已切换到开发版本 ${new}"
+}
+
+cmd_tag() {
+    local version=$1 dev
+
+    if ! git diff --quiet || ! git diff --cached --quiet; then
+        die "工作区不干净，先提交再打 tag"
+    fi
+
+    # tag 必须与 Cargo.toml 的 [package] version 一致：扩展二进制里的版本号是构建时由官方流程
+    # （`make debug` 触发 append_extension_metadata）写进扩展元数据的，对不上就会发出一个自称别的
+    # 版本的 Release。
+    #
+    # The tag must match Cargo.toml's `[package] version`: the version inside the built extension is
+    # written at build time by the official flow (`make debug` runs append_extension_metadata), so a
+    # mismatch would publish a release claiming another version.
+    dev=$(package_version)
+    if [ "$dev" != "$version" ]; then
+        die "Cargo.toml 的版本是 ${dev:-未知}，与要打的 tag v${version} 不一致"
+    fi
+
+    git tag "v${version}"
+    git push origin main
+    git push origin "v${version}"
+    echo "已推送 v${version}，用 just release_ci 查看进度"
+}
+
+usage() {
+    echo "usage: release.sh {bump|dev|tag} <version>" >&2
+    exit 2
+}
+
+action=${1:-}
+[ $# -gt 0 ] && shift
+
+case "$action" in
+    bump)
+        [ $# -eq 1 ] || usage
+        cmd_bump "$1"
+        ;;
+    dev)
+        [ $# -eq 1 ] || usage
+        cmd_dev "$1"
+        ;;
+    tag)
+        [ $# -eq 1 ] || usage
+        cmd_tag "$1"
+        ;;
+    *)
+        usage
+        ;;
+esac

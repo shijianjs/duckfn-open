@@ -1,0 +1,38 @@
+{
+  "title": {
+    "message": "my_extension",
+    "description": "The title in the navbar"
+  },
+  "logo.alt": {
+    "message": "my_extension logo",
+    "description": "The alt text of navbar logo"
+  },
+  "item.label.User guide": {
+    "message": "用户指南",
+    "description": "Navbar item with label User guide"
+  },
+  "item.label.Development guide": {
+    "message": "开发指南",
+    "description": "Navbar item with label Development guide"
+  },
+  "item.label.Links": {
+    "message": "相关链接",
+    "description": "Navbar item with label Links"
+  },
+  "item.label.GitHub": {
+    "message": "GitHub",
+    "description": "Navbar item with label GitHub"
+  },
+  "item.label.Releases": {
+    "message": "版本发布",
+    "description": "Navbar item with label Releases"
+  },
+  "item.label.Community extensions": {
+    "message": "社区扩展",
+    "description": "Navbar item with label Community extensions"
+  },
+  "item.label.duckfn": {
+    "message": "duckfn",
+    "description": "Navbar item with label duckfn"
+  }
+}

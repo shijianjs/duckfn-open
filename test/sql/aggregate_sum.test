@@ -1,0 +1,46 @@
+# name: test/sql/aggregate_sum.test
+# description: 示例聚合函数：NULL 跳过、空组返回 NULL、GROUP BY 与跨 DataChunk 的 combine
+# group: [my_extension]
+
+require my_extension
+
+# 返回类型来自 SumState::Output
+query T
+SELECT typeof(my_sum(x)) FROM (VALUES (1.0::DOUBLE)) t(x);
+----
+DOUBLE
+
+# 正常求和
+query I
+SELECT my_sum(x)::DECIMAL(10,1) FROM (VALUES (1.5::DOUBLE), (2.5::DOUBLE), (3.0::DOUBLE)) t(x);
+----
+7.0
+
+# NULL 行被跳过（非 Option 入参的既有语义）
+query I
+SELECT my_sum(x)::DECIMAL(10,1) FROM (VALUES (1.0::DOUBLE), (NULL), (2.0::DOUBLE)) t(x);
+----
+3.0
+
+# 一行有效行都没有 -> SQL NULL，而不是 0
+query I
+SELECT my_sum(x) FROM (VALUES (NULL::DOUBLE)) t(x);
+----
+NULL
+
+# 它有 GROUP BY 可用：每一组各算各的，整组都是 NULL 的那一组回 NULL
+query II
+SELECT g, my_sum(x)::DECIMAL(10,1)
+FROM (VALUES ('a', 1.0::DOUBLE), ('a', 2.0::DOUBLE), ('b', 4.0::DOUBLE), ('c', NULL))
+     t(g, x)
+GROUP BY g ORDER BY g;
+----
+a	3.0
+b	4.0
+c	NULL
+
+# 跨 DataChunk（不止一个 chunk 时 combine 要走 simple_combine 合并）
+query II
+SELECT count(*), my_sum(x)::BIGINT FROM range(5000) t(x);
+----
+5000	12497500

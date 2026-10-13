@@ -1,0 +1,58 @@
+{
+  "link.title.User guide": {
+    "message": "用户指南",
+    "description": "The title of the footer links column with title=User guide in the footer"
+  },
+  "link.title.Development guide": {
+    "message": "开发指南",
+    "description": "The title of the footer links column with title=Development guide in the footer"
+  },
+  "link.title.Links": {
+    "message": "相关链接",
+    "description": "The title of the footer links column with title=Links in the footer"
+  },
+  "link.item.label.Introduction": {
+    "message": "简介",
+    "description": "The label of footer link with label=Introduction linking to /docs/intro"
+  },
+  "link.item.label.Installation": {
+    "message": "安装",
+    "description": "The label of footer link with label=Installation linking to /docs/user-guide/installation"
+  },
+  "link.item.label.Functions": {
+    "message": "函数",
+    "description": "The label of footer link with label=Functions linking to /docs/user-guide/functions"
+  },
+  "link.item.label.Quick start": {
+    "message": "快速开始",
+    "description": "The label of footer link with label=Quick start linking to /docs/development/quick-start"
+  },
+  "link.item.label.Project structure": {
+    "message": "目录结构",
+    "description": "The label of footer link with label=Project structure linking to /docs/development/project-structure"
+  },
+  "link.item.label.Build and release": {
+    "message": "构建与发版",
+    "description": "The label of footer link with label=Build and release linking to /docs/development/build-and-release"
+  },
+  "link.item.label.Community extensions": {
+    "message": "社区扩展",
+    "description": "The label of footer link with label=Community extensions linking to /docs/development/community-extension"
+  },
+  "link.item.label.GitHub": {
+    "message": "GitHub",
+    "description": "The label of footer link with label=GitHub linking to the repository"
+  },
+  "link.item.label.duckfn": {
+    "message": "duckfn",
+    "description": "The label of footer link with label=duckfn linking to the duckfn documentation"
+  },
+  "link.item.label.DuckDB extensions": {
+    "message": "DuckDB 扩展",
+    "description": "The label of footer link with label=DuckDB extensions"
+  },
+  "copyright": {
+    "message": "Copyright © 2026 my_extension contributors. Built with Docusaurus.",
+    "description": "The footer copyright; keep it free of angle brackets (it is rendered as HTML)"
+  }
+}

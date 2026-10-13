@@ -1,0 +1,22 @@
+# name: test/sql/my_extension.test
+# description: 冒烟测试：扩展能被加载，两个示例函数注册到位
+# group: [my_extension]
+
+# 加载之前这个名字不存在（每个 .test 文件都从一个干净的实例开始）
+statement error
+SELECT my_greet('world');
+----
+Scalar Function with name my_greet does not exist
+
+# require 之后扩展就位（测试框架按 --external-extension 加载本地产物）
+require my_extension
+
+query T
+SELECT my_greet('world');
+----
+Hello, world!
+
+query I
+SELECT my_sum(x)::DECIMAL(10,1) FROM (VALUES (1.5::DOUBLE), (2.5::DOUBLE), (3.0::DOUBLE)) t(x);
+----
+7.0

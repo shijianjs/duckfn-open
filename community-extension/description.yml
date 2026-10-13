@@ -1,0 +1,38 @@
+extension:
+  name: my_extension
+  description: <one line about what this extension does, shown in the community extension list>
+  version: 0.1.0
+  language: Rust
+  build: cargo
+  license: MIT
+  requires_toolchains: "rust;python3"
+  maintainers:
+    - <your-github-handle>
+
+repo:
+  github: <owner>/<repo>
+  ref: <40-character commit SHA of the released version>
+
+docs:
+  hello_world: |
+    -- The two sample functions: one scalar, one aggregate
+    SELECT my_greet('world');
+    -- Hello, world!
+
+    SELECT my_sum(x) FROM (VALUES (1.5::DOUBLE), (2.5::DOUBLE), (3.0::DOUBLE)) t(x);
+    -- 7.0
+  extended_description: |
+    A two-line summary of the whole extension: what goes in, what comes out, and the one thing a user
+    has to know before the first call.
+
+    | Function | Kind | Input -> output |
+    | --- | --- | --- |
+    | `my_greet(name)` | scalar | `VARCHAR` -> `VARCHAR` |
+    | `my_greet_checked(name)` | scalar | `VARCHAR` -> `VARCHAR`, NULL for an empty name |
+    | `my_sum(value)` | aggregate | `DOUBLE` -> `DOUBLE`, NULLs skipped |
+
+    Then the details that do not fit a table: NULL semantics, the options a function takes, what it does
+    with the file system or the network, and which DuckDB version it needs. Requires **DuckDB 1.3 or
+    newer**: the extension is built against DuckDB 1.5.6 headers but declares the C API floor it needs
+    (v1.2.0), so one binary loads into 1.3.2 through 1.5.6 alike. Development notes and the full option
+    table live in the repository: <https://github.com/owner/repo>.

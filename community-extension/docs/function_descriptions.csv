@@ -1,0 +1,4 @@
+function,description,comment,example
+my_greet,"Greets someone by name, the simplest possible scalar function",,SELECT my_greet('world')
+my_greet_checked,"Greets someone by name, returning NULL for an empty name and failing on whitespace","The nullable-and-fallible return shape: Ok(None) is SQL NULL, Err fails the query",SELECT my_greet_checked('')
+my_sum,"Sums a DOUBLE column, skipping NULLs, the simplest possible aggregate function","An empty group, or one where every row is NULL, yields NULL rather than 0","SELECT my_sum(x) FROM (VALUES (1.5), (2.5), (3.0)) t(x); SELECT my_sum(x) FROM (VALUES (1.0), (NULL)) t(x)"

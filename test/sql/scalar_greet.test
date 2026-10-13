@@ -1,0 +1,55 @@
+# name: test/sql/scalar_greet.test
+# description: 示例标量函数：正常值、NULL 输入、错误路径、跨 DataChunk
+# group: [my_extension]
+
+require my_extension
+
+# 正常值（含非 ASCII：DuckString 那条路要能来回）
+query T
+SELECT my_greet(col0) FROM (VALUES ('world'), ('你好')) t(col0);
+----
+Hello, world!
+Hello, 你好!
+
+# 常量 NULL 被折叠成 NULL（函数体不会执行）
+query T
+SELECT my_greet(NULL);
+----
+NULL
+
+# 运行期的 NULL 行整行短路，不进函数体
+query T
+SELECT my_greet(s) FROM (VALUES (1, 'a'), (2, NULL), (3, 'b')) t(i, s) ORDER BY i;
+----
+Hello, a!
+NULL
+Hello, b!
+
+# DuckOptionResult：Ok(None) 落成 SQL NULL
+query T
+SELECT my_greet_checked('');
+----
+NULL
+
+# DuckOptionResult：Err 让整条查询失败
+statement error
+SELECT my_greet_checked(' x ');
+----
+the name must not have surrounding whitespace
+
+# 参数个数与类型由 binder 拦下
+statement error
+SELECT my_greet();
+----
+Binder Error
+
+statement error
+SELECT my_greet(42);
+----
+Binder Error
+
+# 跨多个 DataChunk（STANDARD_VECTOR_SIZE = 2048）
+query II
+SELECT count(*), count(DISTINCT my_greet(s::VARCHAR)) FROM range(3000) t(s);
+----
+3000	3000

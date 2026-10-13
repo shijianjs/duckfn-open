@@ -129,12 +129,12 @@ LOAD duckfn_open;`;
  * name, an existing path going to the default program, and the one call that
  * starts nothing.
  */
-const USAGE_SAMPLE = `SELECT open_write(markdown, 'md');  -- content out to a file, its path back, nothing started
-SELECT open_html('<h1>hello</h1>');  -- a temporary .html, opened in the default browser
-SELECT open_filename(report_title, '_');  -- a string in, a name every platform accepts out
-SELECT open_path('report.html');  -- true once a launcher has been started
-SELECT open_commands('report.html');
--- VARCHAR[]: the launch commands open_path would try on this machine, in order`;
+const USAGE_SAMPLE = `SELECT op_write(markdown, 'md');  -- content out to a file, its path back, nothing started
+SELECT op_open_html('<h1>hello</h1>');  -- a temporary .html, opened in the default browser
+SELECT op_filename(report_title, '_');  -- a string in, a name every platform accepts out
+SELECT op_open_path('report.html');  -- true once a launcher has been started
+SELECT op_open_commands('report.html');
+-- VARCHAR[]: the launch commands op_open_path would try on this machine, in order`;
 
 /**
  * The shields.io badges ask for `style=flat`, which is the rounded style; the
@@ -224,7 +224,7 @@ function featuresContent(): FeaturesContent {
           id: 'homepage.features.sql.details',
           description: 'Home page feature card description',
           message:
-            'Nine function names — open_path, open_write, open_content, open_html, open_print, open_filename and the rest — are ordinary DuckDB functions, and the optional arguments make them twenty-one signatures: use them in any query, alongside the built-in ones, with nothing to import.',
+            'Nine function names — op_open_path, op_write, op_open_content, op_open_html, op_print, op_filename and the rest — are ordinary DuckDB functions, and the optional arguments make them twenty-one signatures: use them in any query, alongside the built-in ones, with nothing to import.',
         }),
       },
       {
@@ -238,7 +238,7 @@ function featuresContent(): FeaturesContent {
           id: 'homepage.features.content.details',
           description: 'Home page feature card description',
           message:
-            'A report, a chart or a page that has no file yet can be handed over directly: open_write writes it out and returns the path, open_content opens it in the same call, open_html needs no configuration at all, and open_print bypasses the result set for output that is read line by line.',
+            'A report, a chart or a page that has no file yet can be handed over directly: op_write writes it out and returns the path, op_open_content opens it in the same call, op_open_html needs no configuration at all, and op_print bypasses the result set for output that is read line by line.',
         }),
       },
       {
@@ -252,7 +252,7 @@ function featuresContent(): FeaturesContent {
           id: 'homepage.features.filename.details',
           description: 'Home page feature card description',
           message:
-            'A name in a query usually comes from the rows — a customer name, a report title, a crawled path column. open_filename rewrites one into a name every platform accepts, open_filename_check answers whether it already is one, so a query can count and filter what would need changing without changing it. Strings both ways: no file written, no program started.',
+            'A name in a query usually comes from the rows — a customer name, a report title, a crawled path column. op_filename rewrites one into a name every platform accepts, op_filename_check answers whether it already is one, so a query can count and filter what would need changing without changing it. Strings both ways: no file written, no program started.',
         }),
       },
       {
@@ -433,7 +433,7 @@ function CodeShowcase(): ReactNode {
                 value you hand in that has no file yet, the last two are a path
                 that already exists — and the final line only lists the commands
                 a launch would try, without trying any of them. The third call
-                is the one that stays a string: open_filename rewrites a file
+                is the one that stays a string: op_filename rewrites a file
                 name, touching neither the disk nor the desktop.
               </Translate>
             </p>

@@ -4,7 +4,7 @@
 //! `duckfn::cli`，需要 `Cargo.toml` 里 duckfn 的 `cli` feature）。输出固定为
 //! `target/function_descriptions.csv` —— 社区扩展文档页 `Added Functions` 那张表的数据来源，
 //! 因为 DuckDB 的 C 扩展 API 没有设置函数描述与示例的接口。描述写在 `#[duck_*]` 属性上
-//! （见 functions/scalar_open_path.rs、scalar_open_commands.rs），这里不重复一份。
+//! （见 functions/scalar_op_open_path.rs、scalar_op_open_commands.rs），这里不重复一份。
 //!
 //! 为什么用 `#[path]` 把 `extension` 再编一遍，而不是 `use duckfn_open::...`：
 //! `#[duck_*]` 的文档元数据靠 `inventory` 的静态构造器收集，只有**真正被链接进最终二进制**的目标
@@ -18,7 +18,7 @@
 //! `target/function_descriptions.csv` — the data behind the `Added Functions` table of the
 //! community-extension doc page, because DuckDB's C extension API has no way to set a function's
 //! description or examples. That text lives on the `#[duck_*]` attributes (see
-//! functions/scalar_open_path.rs and scalar_open_commands.rs); it is not repeated here.
+//! functions/scalar_op_open_path.rs and scalar_op_open_commands.rs); it is not repeated here.
 //!
 //! `#[path]` compiles `extension` a second time instead of using `use duckfn_open::...`
 //! because the documentation metadata behind `#[duck_*]` is collected by `inventory`'s static

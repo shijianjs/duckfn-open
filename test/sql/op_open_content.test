@@ -1,11 +1,11 @@
-# name: test/sql/open_content.test
-# description: open_content：四个签名的形状、launch 之前的校验、NULL 短路
+# name: test/sql/op_open_content.test
+# description: op_open_content：四个签名的形状、launch 之前的校验、NULL 短路
 # group: [duckfn_open]
 
 # 这个函数写完就把程序叫起来，所以**测试里一次都不能落到那一步**：真去 launch 取决于这台机器的桌面
 # 关联（`.txt` 交给谁、有没有 xdg-open），CI 的 runner 恰恰没有桌面。于是这里只断言两件事 —— catalog
 # 里的形状，以及那些在落盘与 launch **之前**就返回错误的校验（它们注定不起进程，所以在哪台机器上都成立）。
-# 落盘本身的规则由 open_write.test 盯着，两个名字走的是同一个 writer::write。
+# 落盘本身的规则由 op_write.test 盯着，两个名字走的是同一个 writer::write。
 
 require duckfn_open
 
@@ -16,27 +16,27 @@ require duckfn_open
 query TI
 SELECT function_name, len(parameters)
 FROM duckdb_functions()
-WHERE function_name = 'open_content'
+WHERE function_name = 'op_open_content'
 ORDER BY len(parameters);
 ----
-open_content	2
-open_content	2
-open_content	3
-open_content	3
+op_open_content	2
+op_open_content	2
+op_open_content	3
+op_open_content	3
 
 # 四个候选里恰好两个是 BLOB 的
 query T
 SELECT count(*) = 2
 FROM duckdb_functions()
-WHERE function_name = 'open_content' AND list_contains(parameter_types, 'BLOB');
+WHERE function_name = 'op_open_content' AND list_contains(parameter_types, 'BLOB');
 ----
 true
 
-# 返回的是路径（VARCHAR），不是 open_path 那种布尔结论
+# 返回的是路径（VARCHAR），不是 op_open_path 那种布尔结论
 query T
 SELECT count(DISTINCT return_type) = 1 AND min(return_type) = 'VARCHAR'
 FROM duckdb_functions()
-WHERE function_name = 'open_content';
+WHERE function_name = 'op_open_content';
 ----
 true
 
@@ -44,24 +44,24 @@ true
 # launch 之前的校验：错误要说清是哪一项，而且一个进程都不会起来
 # ============================================================================
 
-# 后缀必填。这条与 open_write 同一条 writer::write 路径，只是报文前缀换成调用点自己的名字
+# 后缀必填。这条与 op_write 同一条 writer::write 路径，只是报文前缀换成调用点自己的名字
 statement error
-SELECT open_content('a', '');
+SELECT op_open_content('a', '');
 ----
-open_content: the extension must not be empty
+op_open_content: the extension must not be empty
 
 statement error
-SELECT open_content('a', 'out/report.html');
+SELECT op_open_content('a', 'out/report.html');
 ----
 looks like a path
 
 statement error
-SELECT open_content('a', 'txt', {'dir':'   ','name':NULL,'part':NULL});
+SELECT op_open_content('a', 'txt', {'dir':'   ','name':NULL,'part':NULL});
 ----
-open_write_options.dir must not be empty
+op_write_options.dir must not be empty
 
 statement error
-SELECT open_content('a', 'txt', {'dir':'__TEST_DIR__/silent','name':'/','part':NULL});
+SELECT op_open_content('a', 'txt', {'dir':'__TEST_DIR__/silent','name':'/','part':NULL});
 ----
 is not a usable file name
 
@@ -76,18 +76,18 @@ SELECT count(*) FROM glob('__TEST_DIR__/silent/*');
 # ============================================================================
 
 query TTT
-SELECT open_content(NULL, 'txt'), open_content('a', NULL), open_content('a', 'txt', NULL);
+SELECT op_open_content(NULL, 'txt'), op_open_content('a', NULL), op_open_content('a', 'txt', NULL);
 ----
 NULL	NULL	NULL
 
 # 运行期的 NULL 行同样整行短路
 query I
-SELECT count(*) FROM (VALUES (NULL), (NULL)) t(c) WHERE open_content(c, 'txt') IS NOT NULL;
+SELECT count(*) FROM (VALUES (NULL), (NULL)) t(c) WHERE op_open_content(c, 'txt') IS NOT NULL;
 ----
 0
 
 # 参数个数由 binder 拦下（这个函数集最多三个）
 statement error
-SELECT open_content('a', 'txt', {'dir':'x','name':NULL,'part':NULL}, 'extra');
+SELECT op_open_content('a', 'txt', {'dir':'x','name':NULL,'part':NULL}, 'extra');
 ----
 Binder Error

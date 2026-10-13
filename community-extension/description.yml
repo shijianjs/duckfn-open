@@ -16,16 +16,16 @@ repo:
 docs:
   hello_world: |
     -- What would open this on the machine running the query, without opening anything
-    SELECT open_commands('report.html');
+    SELECT op_open_commands('report.html');
 
     -- Hand it to the default program; true once a launcher has been started
-    SELECT open_path('./report.html');
+    SELECT op_open_path('./report.html');
 
     -- Most query output is content, not a path: write it out and get the path back, starting nothing
-    SELECT open_write('{"a":1}', 'json');
+    SELECT op_write('{"a":1}', 'json');
 
     -- NULL input starts nothing, so SQL can tell "no input" from "could not open"
-    SELECT open_path(NULL);
+    SELECT op_open_path(NULL);
   extended_description: |
     `duckfn_open` wraps the Rust `open` crate for SQL: it hands a thing to whatever the current desktop
     configuration opens that kind of thing with — the system default program, or one you name. The value
@@ -37,43 +37,43 @@ docs:
 
     | Function | Input -> output | What it does |
     | --- | --- | --- |
-    | `open_path(path[, app])` | `VARCHAR[, VARCHAR]` -> `BOOLEAN` | opens a path or URL, waiting for the launcher |
-    | `open_path_detached(path[, app])` | `VARCHAR[, VARCHAR]` -> `BOOLEAN` | the same, returning as soon as the launcher started |
-    | `open_commands(path)` | `VARCHAR` -> `VARCHAR[]` | lists the launcher commands, runs none |
-    | `open_write(content, ext[, opts])` | `VARCHAR` or `BLOB` -> `VARCHAR` | writes content to a file, returns its path, starts nothing |
-    | `open_content(content, ext[, opts])` | `VARCHAR` or `BLOB` -> `VARCHAR` | writes it and opens it in one call |
-    | `open_html(content)` | `VARCHAR` -> `VARCHAR` | the zero-config shortcut: a temporary `.html` in the default browser |
-    | `open_print(text[, tail])` | `VARCHAR` -> `NULL` | writes to stdout, past the result set's column formatting |
-    | `open_filename(value[, replacement[, truncate, windows]])` | `VARCHAR` -> `VARCHAR` | rewrites a string into a usable file name, touching neither file nor process |
-    | `open_filename_check(value[, truncate, windows])` | `VARCHAR` -> `BOOLEAN` | rewrites nothing: is this string already a usable name |
+    | `op_open_path(path[, app])` | `VARCHAR[, VARCHAR]` -> `BOOLEAN` | opens a path or URL, waiting for the launcher |
+    | `op_open_path_detached(path[, app])` | `VARCHAR[, VARCHAR]` -> `BOOLEAN` | the same, returning as soon as the launcher started |
+    | `op_open_commands(path)` | `VARCHAR` -> `VARCHAR[]` | lists the launcher commands, runs none |
+    | `op_write(content, ext[, opts])` | `VARCHAR` or `BLOB` -> `VARCHAR` | writes content to a file, returns its path, starts nothing |
+    | `op_open_content(content, ext[, opts])` | `VARCHAR` or `BLOB` -> `VARCHAR` | writes it and opens it in one call |
+    | `op_open_html(content)` | `VARCHAR` -> `VARCHAR` | the zero-config shortcut: a temporary `.html` in the default browser |
+    | `op_print(text[, tail])` | `VARCHAR` -> `NULL` | writes to stdout, past the result set's column formatting |
+    | `op_filename(value[, replacement[, truncate, windows]])` | `VARCHAR` -> `VARCHAR` | rewrites a string into a usable file name, touching neither file nor process |
+    | `op_filename_check(value[, truncate, windows])` | `VARCHAR` -> `BOOLEAN` | rewrites nothing: is this string already a usable name |
 
     Three outcomes are distinguishable in SQL for the launch functions, and that is the whole contract:
     `NULL` means the row had no input (a NULL argument never reaches a launcher, and never writes a file),
     `true` means a launcher was started, `false` means none could be started on this machine. Whether to
-    wait is the visible difference between the two `open_path` pairs — on Linux `xdg-open` returns only
-    once the target program exits, so `open_path_detached` is what you want inside a query. An empty path
+    wait is the visible difference between the two `op_open_path` pairs — on Linux `xdg-open` returns only
+    once the target program exits, so `op_open_path_detached` is what you want inside a query. An empty path
     or application is an error rather than a `false`, since a typo and an unopenable file deserve different
     answers.
 
-    The write half returns a path, which moves where a failure can be written: `open_content` and
-    `open_html` report a launcher that cannot start as an **error carrying that path**, because the file
+    The write half returns a path, which moves where a failure can be written: `op_open_content` and
+    `op_open_html` report a launcher that cannot start as an **error carrying that path**, because the file
     really is on disk and a bare `false` would throw the path away. Their three options ride in an
-    `open_write_options` STRUCT (`dir`, `name`, `part`): the extension is required, the directory defaults
+    `op_write_options` STRUCT (`dir`, `name`, `part`): the extension is required, the directory defaults
     to the system temp directory and is created with its parents when missing, and with no `name` one is
     generated as `open-<time>-<part>-<random>.<ext>`. File-name legality (illegal and control characters,
     Windows reserved device names, trailing dots and spaces) is `sanitize-filename`'s job, and the random
     suffix with the guarantee that a generated name overwrites nothing is `tempfile`'s.
 
-    `open_print` is for the output the CLI's result formatting destroys: character art read line by line,
+    `op_print` is for the output the CLI's result formatting destroys: character art read line by line,
     such as the ASCII or braille charts a plotting extension produces, which would otherwise arrive
     wrapped into a single VARCHAR cell. It writes to stdout as it is and returns NULL.
 
-    `open_commands` is the read-only entry point: it lists, in the order the crate would try them, the
+    `op_open_commands` is the read-only entry point: it lists, in the order the crate would try them, the
     launchers this machine would use, so "nothing opened" can be diagnosed without a desktop. Its result
     is the same on a headless CI runner as on a workstation, which is why it is also the example worth
     copying into a test.
 
-    `open_filename` and `open_filename_check` start no process and open no file: they put the
+    `op_filename` and `op_filename_check` start no process and open no file: they put the
     `sanitize-filename` crate's own rules and defaults on SQL, so a file name taken from the data itself —
     a customer name, a report title, a crawled `path` column — can be made usable before anything is
     composed onto it, and counted by the check half without being rewritten. Illegal and control characters,

@@ -1,5 +1,5 @@
-# name: test/sql/open_write.test
-# description: open_write：四个签名的形状、路径与命名规则、BLOB 字节往返、选项校验、NULL 短路
+# name: test/sql/op_write.test
+# description: op_write：四个签名的形状、路径与命名规则、BLOB 字节往返、选项校验、NULL 短路
 # group: [duckfn_open]
 
 # 这个函数不起进程，所以落盘的每一步在任何机器上都可断言（CI 的 runner 没有桌面也一样跑）。
@@ -15,17 +15,17 @@ require duckfn_open
 query TI
 SELECT function_name, len(parameters)
 FROM duckdb_functions()
-WHERE function_name = 'open_write'
+WHERE function_name = 'op_write'
 ORDER BY len(parameters);
 ----
-open_write	2
-open_write	2
-open_write	3
-open_write	3
+op_write	2
+op_write	2
+op_write	3
+op_write	3
 
-# 返回的是路径本身，不是布尔：这一步的产物是文件，启动是下一件事（open_path / open_content）
+# 返回的是路径本身，不是布尔：这一步的产物是文件，启动是下一件事（op_open_path / op_open_content）
 query T
-SELECT typeof(open_write('hello', 'txt', {'dir':'__TEST_DIR__/shape','name':'plain','part':NULL}));
+SELECT typeof(op_write('hello', 'txt', {'dir':'__TEST_DIR__/shape','name':'plain','part':NULL}));
 ----
 VARCHAR
 
@@ -33,7 +33,7 @@ VARCHAR
 query T
 SELECT count(*) = 2
 FROM duckdb_functions()
-WHERE function_name = 'open_write' AND list_contains(parameter_types, 'BLOB');
+WHERE function_name = 'op_write' AND list_contains(parameter_types, 'BLOB');
 ----
 true
 
@@ -43,7 +43,7 @@ true
 
 # 名字没写后缀时，必填的那个被补上；路径一律用 `/` 拼，所以这条断言在三个平台上同形
 query T
-SELECT open_write('report body', 'md', {'dir':'__TEST_DIR__/named','name':'report','part':NULL})
+SELECT op_write('report body', 'md', {'dir':'__TEST_DIR__/named','name':'report','part':NULL})
        = '__TEST_DIR__/named/report.md';
 ----
 true
@@ -55,33 +55,33 @@ report body
 
 # 后缀的比较不区分大小写：名字已经带着同一个后缀就不再补一次，两边的大小写各是哪一种都一样
 query T
-SELECT open_write('body', 'htm', {'dir':'__TEST_DIR__/casing','name':'REPORT.HTM','part':NULL})
+SELECT op_write('body', 'htm', {'dir':'__TEST_DIR__/casing','name':'REPORT.HTM','part':NULL})
        = '__TEST_DIR__/casing/REPORT.HTM';
 ----
 true
 
 query T
-SELECT open_write('body', 'HTML', {'dir':'__TEST_DIR__/casing','name':'page.HTML','part':NULL})
+SELECT op_write('body', 'HTML', {'dir':'__TEST_DIR__/casing','name':'page.HTML','part':NULL})
        = '__TEST_DIR__/casing/page.HTML';
 ----
 true
 
 # 真要补，补的是调用方写的那个样子（`HTML` 就得到 `.HTML`）
 query T
-SELECT open_write('body', 'HTML', {'dir':'__TEST_DIR__/casing','name':'page','part':NULL})
+SELECT op_write('body', 'HTML', {'dir':'__TEST_DIR__/casing','name':'page','part':NULL})
        = '__TEST_DIR__/casing/page.HTML';
 ----
 true
 
 # 同名文件按「用户要的就是这个路径」覆盖：第二次只写了一个字节，第一次那行长内容不会留在后面
 query T
-SELECT open_write('a much longer first body', 'txt', {'dir':'__TEST_DIR__/overwrite','name':'twice','part':NULL})
+SELECT op_write('a much longer first body', 'txt', {'dir':'__TEST_DIR__/overwrite','name':'twice','part':NULL})
        = '__TEST_DIR__/overwrite/twice.txt';
 ----
 true
 
 query T
-SELECT open_write('x', 'txt', {'dir':'__TEST_DIR__/overwrite','name':'twice','part':NULL})
+SELECT op_write('x', 'txt', {'dir':'__TEST_DIR__/overwrite','name':'twice','part':NULL})
        = '__TEST_DIR__/overwrite/twice.txt';
 ----
 true
@@ -94,7 +94,7 @@ x
 # 目录不存在时连父级一起建出来（写 dir 的人多半是说「我要放这儿」，不是「这儿已经在了」）
 query T
 SELECT content FROM read_text(
-    open_write('nested body', 'txt', {'dir':'__TEST_DIR__/nested/a/b','name':'deep','part':NULL}));
+    op_write('nested body', 'txt', {'dir':'__TEST_DIR__/nested/a/b','name':'deep','part':NULL}));
 ----
 nested body
 
@@ -105,7 +105,7 @@ nested body
 # 时间紧跟前缀（所以一个目录按名字排序就是按时间排序），part 里的空格并成 `_`，随机尾缀由 tempfile 给
 query T
 SELECT regexp_matches(
-    open_write('x', 'svg', {'dir':'__TEST_DIR__/generated','name':NULL,'part':'Sales Overview'}),
+    op_write('x', 'svg', {'dir':'__TEST_DIR__/generated','name':NULL,'part':'Sales Overview'}),
     'open-[0-9]{8}-[0-9]{6}-Sales_Overview-[A-Za-z0-9]+\.svg$');
 ----
 true
@@ -113,7 +113,7 @@ true
 # 没给 part 就整段跳过（名字里只剩时间与随机尾缀），后缀照样必填
 query T
 SELECT regexp_matches(
-    open_write('x', 'txt', {'dir':'__TEST_DIR__/generated','name':NULL,'part':NULL}),
+    op_write('x', 'txt', {'dir':'__TEST_DIR__/generated','name':NULL,'part':NULL}),
     'open-[0-9]{8}-[0-9]{6}-[A-Za-z0-9]+\.txt$');
 ----
 true
@@ -123,8 +123,8 @@ true
 # 运行留下的残留不会被测试框架清掉，数总量就成了看运气的断言。
 statement ok
 CREATE TEMP TABLE auto_named AS (
-    SELECT open_write('first', 'txt', {'dir':'__TEST_DIR__/unique','name':NULL,'part':NULL}) AS a,
-           open_write('second','txt', {'dir':'__TEST_DIR__/unique','name':NULL,'part':NULL}) AS b
+    SELECT op_write('first', 'txt', {'dir':'__TEST_DIR__/unique','name':NULL,'part':NULL}) AS a,
+           op_write('second','txt', {'dir':'__TEST_DIR__/unique','name':NULL,'part':NULL}) AS b
 );
 
 query T
@@ -147,7 +147,7 @@ true
 
 # PNG 的魔数（89 50 4E 47）从一个 BLOB 走进去、再从文件读回来，一个字节都没动
 query T
-SELECT open_write('\x89\x50\x4E\x47'::BLOB, 'png', {'dir':'__TEST_DIR__/blob','name':'magic','part':NULL})
+SELECT op_write('\x89\x50\x4E\x47'::BLOB, 'png', {'dir':'__TEST_DIR__/blob','name':'magic','part':NULL})
        = '__TEST_DIR__/blob/magic.png';
 ----
 true
@@ -163,29 +163,29 @@ SELECT hex(content) FROM read_blob('__TEST_DIR__/blob/magic.png');
 
 # 后缀必填、不能是空 —— 它是决定系统怎么看待这个文件的那一段，没有可猜的余地
 statement error
-SELECT open_write('a', '');
+SELECT op_write('a', '');
 ----
 the extension must not be empty
 
 # 带分隔符的「后缀」其实是一条路径：静默换成 `out_report.html` 只会写出一个谁也不认识的文件
 statement error
-SELECT open_write('a', 'out/report.html');
+SELECT op_write('a', 'out/report.html');
 ----
 looks like a path
 
 statement error
-SELECT open_write('a', 'txt', {'dir':'   ','name':NULL,'part':NULL});
+SELECT op_write('a', 'txt', {'dir':'   ','name':NULL,'part':NULL});
 ----
-open_write_options.dir must not be empty
+op_write_options.dir must not be empty
 
 statement error
-SELECT open_write('a', 'txt', {'dir':'__TEST_DIR__/badname','name':'/','part':NULL});
+SELECT op_write('a', 'txt', {'dir':'__TEST_DIR__/badname','name':'/','part':NULL});
 ----
-open_write_options.name is not a usable file name
+op_write_options.name is not a usable file name
 
 # `name` 里的路径分隔符被替换掉，所以一个名字逃不出给定的目录
 query T
-SELECT open_write('a', 'txt', {'dir':'__TEST_DIR__/escape','name':'../evil:name','part':NULL})
+SELECT op_write('a', 'txt', {'dir':'__TEST_DIR__/escape','name':'../evil:name','part':NULL})
        LIKE '__TEST_DIR__/escape/%';
 ----
 true
@@ -197,19 +197,19 @@ true
 # 三个参数一视同仁 —— 选项那一项传 NULL 也是短路，**不是**「其余按缺省走」。要缺省就省略第 3 个参数
 # （见文件末尾那条）。
 query TTT
-SELECT open_write(NULL, 'txt'), open_write('a', NULL), open_write('a', 'txt', NULL);
+SELECT op_write(NULL, 'txt'), op_write('a', NULL), op_write('a', 'txt', NULL);
 ----
 NULL	NULL	NULL
 
 # 运行期的 NULL 行同样整行短路
 query I
-SELECT count(*) FROM (VALUES (NULL), (NULL)) t(c) WHERE open_write(c, 'txt') IS NOT NULL;
+SELECT count(*) FROM (VALUES (NULL), (NULL)) t(c) WHERE op_write(c, 'txt') IS NOT NULL;
 ----
 0
 
 # 想要「全按缺省」就**省略**第 3 个参数：文件落在系统临时目录里。名字断言不了，但它是真写出来了 ——
 # 读回来一次。（整个 STRUCT 传 NULL 不是这个意思，那是上一条的短路：连文件都不会有。）
 query T
-SELECT content FROM read_text(open_write('default options', 'txt'));
+SELECT content FROM read_text(op_write('default options', 'txt'));
 ----
 default options

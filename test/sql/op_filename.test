@@ -1,11 +1,11 @@
-# name: test/sql/open_filename.test
-# description: open_filename / open_filename_check：sanitize-filename 的完整能力接到 SQL 上
+# name: test/sql/op_filename.test
+# description: op_filename / op_filename_check：sanitize-filename 的完整能力接到 SQL 上
 # group: [duckfn_open]
 
 # 这个扩展里唯一一族**纯字符串**函数：不起进程、不碰文件系统，所以每一条改写结果都能逐字断言 —— 别的
 # 文件只能盯 catalog、NULL 与报错。断言写的是库的规则本身（非法字符、控制字符、`.` 与 `..`、Windows 的
-# 保留设备名、结尾的点与空格、255 字节这一刀），不是这个扩展的策略：`open_write` 的 `name` 那一条（替换成
-# `_`、不截断）是另一套缺省，由 open_write.test 盯。
+# 保留设备名、结尾的点与空格、255 字节这一刀），不是这个扩展的策略：`op_write` 的 `name` 那一条（替换成
+# `_`、不截断）是另一套缺省，由 op_write.test 盯。
 
 require duckfn_open
 
@@ -16,28 +16,28 @@ require duckfn_open
 query TTI
 SELECT function_name, len(parameters), return_type
 FROM duckdb_functions()
-WHERE function_name IN ('open_filename', 'open_filename_check')
+WHERE function_name IN ('op_filename', 'op_filename_check')
 ORDER BY function_name, len(parameters);
 ----
-open_filename	1	VARCHAR
-open_filename	2	VARCHAR
-open_filename	4	VARCHAR
-open_filename_check	1	BOOLEAN
-open_filename_check	3	BOOLEAN
+op_filename	1	VARCHAR
+op_filename	2	VARCHAR
+op_filename	4	VARCHAR
+op_filename_check	1	BOOLEAN
+op_filename_check	3	BOOLEAN
 
 query TT
 SELECT parameter_types::VARCHAR, return_type
 FROM duckdb_functions()
-WHERE function_name = 'open_filename'
+WHERE function_name = 'op_filename'
 ORDER BY len(parameters);
 ----
 [VARCHAR]	VARCHAR
 [VARCHAR, VARCHAR]	VARCHAR
 [VARCHAR, VARCHAR, BOOLEAN, BOOLEAN]	VARCHAR
 
-# 三个参数是缺的那一档：`truncate` 与 `windows` 只能一起给（见 scalar_open_filename.rs）
+# 三个参数是缺的那一档：`truncate` 与 `windows` 只能一起给（见 scalar_op_filename.rs）
 statement error
-SELECT open_filename('a.txt', '_', true);
+SELECT op_filename('a.txt', '_', true);
 ----
 Binder Error
 
@@ -45,8 +45,8 @@ Binder Error
 query T
 SELECT count(*) = 0
 FROM duckdb_functions()
-WHERE function_name IN ('open_filename_with_replacement', 'open_filename_with_options',
-                        'open_filename_check_with_options');
+WHERE function_name IN ('op_filename_with_replacement', 'op_filename_with_options',
+                        'op_filename_check_with_options');
 ----
 true
 
@@ -55,44 +55,44 @@ true
 # ============================================================================
 
 query T
-SELECT open_filename('quarterly/report:v2.csv') = 'quarterlyreportv2.csv';
+SELECT op_filename('quarterly/report:v2.csv') = 'quarterlyreportv2.csv';
 ----
 true
 
 # 引号、竖线、尖括号、问号、冒号、星号、两个反斜杠都在非法字符里，全部删掉只剩字母
 query T
-SELECT open_filename('a"b|c<d>e?f\\g:h*i"j') = 'abcdefghij';
+SELECT op_filename('a"b|c<d>e?f\\g:h*i"j') = 'abcdefghij';
 ----
 true
 
 # 控制字符（含 NUL 与 DEL 之后那一排）
 query T
-SELECT open_filename(chr(1) || 'x' || chr(31)) = 'x';
+SELECT op_filename(chr(1) || 'x' || chr(31)) = 'x';
 ----
 true
 
 # 整段只是点：`^\.+$` 是保留名，删掉之后什么都不剩
 query T
-SELECT open_filename('..') = '' AND open_filename('.') = '';
+SELECT op_filename('..') = '' AND op_filename('.') = '';
 ----
 true
 
 # Windows 的保留设备名连后缀一起算，所以整个名字也会消失
 query T
-SELECT open_filename('CON.txt') = '' AND open_filename('nul') = '';
+SELECT op_filename('CON.txt') = '' AND op_filename('nul') = '';
 ----
 true
 
 # 结尾的点与空格被去掉，开头的不动
 query T
-SELECT open_filename('  the report.  ') = '  the report';
+SELECT op_filename('  the report.  ') = '  the report';
 ----
 true
 
 # 255 是**字节**这一刀：缺省开着，关掉就原样留着
 query T
-SELECT length(open_filename(repeat('a', 300))) = 255
-   AND length(open_filename(repeat('a', 300), '_', false, true)) = 300;
+SELECT length(op_filename(repeat('a', 300))) = 255
+   AND length(op_filename(repeat('a', 300), '_', false, true)) = 300;
 ----
 true
 
@@ -101,26 +101,26 @@ true
 # ============================================================================
 
 query T
-SELECT open_filename('a/b:c?.txt', '_') = 'a_b_c_.txt'
-   AND open_filename('sales|east', '-') = 'sales-east'
-   AND open_filename('a/b', '') = 'ab';
+SELECT op_filename('a/b:c?.txt', '_') = 'a_b_c_.txt'
+   AND op_filename('sales|east', '-') = 'sales-east'
+   AND op_filename('a/b', '') = 'ab';
 ----
 true
 
 # replacement 可以是多于一格
 query T
-SELECT open_filename('a/b', '__') = 'a__b';
+SELECT op_filename('a/b', '__') = 'a__b';
 ----
 true
 
 # windows=false 时 `CON.txt` 不是保留名，也不是「结尾的点」之外的东西
 query T
-SELECT open_filename('CON.txt', '_', true, false) = 'CON.txt';
+SELECT op_filename('CON.txt', '_', true, false) = 'CON.txt';
 ----
 true
 
 query T
-SELECT open_filename_check('CON.txt') = FALSE AND open_filename_check('CON.txt', true, false) = TRUE;
+SELECT op_filename_check('CON.txt') = FALSE AND op_filename_check('CON.txt', true, false) = TRUE;
 ----
 true
 
@@ -132,8 +132,8 @@ query T
 SELECT count(*) = 0
 FROM (
     SELECT n, tr, w,
-           open_filename_check(n, tr, w) AS legal,
-           (open_filename(n, '', tr, w) = n) AS unchanged
+           op_filename_check(n, tr, w) AS legal,
+           (op_filename(n, '', tr, w) = n) AS unchanged
     FROM (VALUES ('a.txt'), ('a/b.txt'), ('..'), ('CON'), ('CON.txt'), ('trail. '),
                  ('nul.js'), ('a:b'), ('  spaced  '), ('x' || chr(0)), (repeat('a', 300))) t(n),
          (VALUES (true), (false)) a(tr),
@@ -146,7 +146,7 @@ true
 # 逐行真的算，不是常量折叠：三行里两行需要改
 query T
 SELECT count(*) FROM (VALUES ('a.txt'), ('b/c.txt'), ('CON')) t(name)
-WHERE NOT open_filename_check(name);
+WHERE NOT op_filename_check(name);
 ----
 2
 
@@ -155,11 +155,11 @@ WHERE NOT open_filename_check(name);
 # ============================================================================
 
 query T
-SELECT open_filename(NULL) IS NULL
-   AND open_filename('a.txt', NULL) IS NULL
-   AND open_filename('a.txt', '_', NULL, true) IS NULL
-   AND open_filename_check(NULL) IS NULL
-   AND open_filename_check('a.txt', true, NULL) IS NULL;
+SELECT op_filename(NULL) IS NULL
+   AND op_filename('a.txt', NULL) IS NULL
+   AND op_filename('a.txt', '_', NULL, true) IS NULL
+   AND op_filename_check(NULL) IS NULL
+   AND op_filename_check('a.txt', true, NULL) IS NULL;
 ----
 true
 
@@ -167,7 +167,7 @@ true
 query II
 SELECT count(*) FILTER (WHERE name IS NULL) AS null_rows,
        count(*) FILTER (WHERE name IS NOT NULL) AS rewritten
-FROM (SELECT open_filename(n) AS name FROM (VALUES ('a/b'), (NULL), ('c:d')) t(n));
+FROM (SELECT op_filename(n) AS name FROM (VALUES ('a/b'), (NULL), ('c:d')) t(n));
 ----
 1	2
 
@@ -176,32 +176,32 @@ FROM (SELECT open_filename(n) AS name FROM (VALUES ('a/b'), (NULL), ('c:d')) t(n
 # ============================================================================
 
 statement error
-SELECT open_filename();
+SELECT op_filename();
 ----
 Binder Error
 
 statement error
-SELECT open_filename('a.txt', true);
+SELECT op_filename('a.txt', true);
 ----
 Binder Error
 
 statement error
-SELECT open_filename('a.txt', '_', true, true, true);
+SELECT op_filename('a.txt', '_', true, true, true);
 ----
 Binder Error
 
 statement error
-SELECT open_filename_check('a.txt', true);
+SELECT op_filename_check('a.txt', true);
 ----
 Binder Error
 
 statement error
-SELECT open_filename_check(42);
+SELECT op_filename_check(42);
 ----
 Binder Error
 
 # 这两个 Rust 名字不是 SQL 类型：别把参数名当成类型注册进去
 query T
-SELECT count(*) = 0 FROM duckdb_types() WHERE starts_with(type_name, 'open_filename');
+SELECT count(*) = 0 FROM duckdb_types() WHERE starts_with(type_name, 'op_filename');
 ----
 true

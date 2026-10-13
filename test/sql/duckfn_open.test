@@ -1,32 +1,32 @@
 # name: test/sql/duckfn_open.test
-# description: 冒烟测试：扩展能被加载，open_ 系列注册到位
+# description: 冒烟测试：扩展能被加载，op_ 系列注册到位
 # group: [duckfn_open]
 
 # 加载之前这些名字不存在（每个 .test 文件都从一个干净的实例开始）
 statement error
-SELECT open_path('report.html');
+SELECT op_open_path('report.html');
 ----
-Scalar Function with name open_path does not exist
+Scalar Function with name op_open_path does not exist
 
 statement error
-SELECT open_commands('report.html');
+SELECT op_open_commands('report.html');
 ----
-Scalar Function with name open_commands does not exist
+Scalar Function with name op_open_commands does not exist
 
 statement error
-SELECT open_write('report', 'html');
+SELECT op_write('report', 'html');
 ----
-Scalar Function with name open_write does not exist
+Scalar Function with name op_write does not exist
 
 statement error
-SELECT open_print('report');
+SELECT op_print('report');
 ----
-Scalar Function with name open_print does not exist
+Scalar Function with name op_print does not exist
 
 statement error
-SELECT open_filename('report:q3');
+SELECT op_filename('report:q3');
 ----
-Scalar Function with name open_filename does not exist
+Scalar Function with name op_filename does not exist
 
 # require 之后扩展就位（测试框架按 --external-extension 加载本地产物）
 require duckfn_open
@@ -37,29 +37,29 @@ SELECT string_agg(function_name, ',')
 FROM (
     SELECT DISTINCT function_name
     FROM duckdb_functions()
-    WHERE function_name LIKE 'open_%'
+    WHERE function_name LIKE 'op_%'
     ORDER BY function_name
 );
 ----
-open_commands,open_content,open_filename,open_filename_check,open_html,open_path,open_path_detached,open_print,open_write
+op_filename,op_filename_check,op_open_commands,op_open_content,op_open_html,op_open_path,op_open_path_detached,op_print,op_write
 
-# 签名总数：open_commands 1 + open_path 2 + open_path_detached 2 + open_write 4 + open_content 4 +
-# open_html 1 + open_print 2 + open_filename 3 + open_filename_check 2
+# 签名总数：op_open_commands 1 + op_open_path 2 + op_open_path_detached 2 + op_write 4 + op_open_content 4 +
+# op_open_html 1 + op_print 2 + op_filename 3 + op_filename_check 2
 query I
 SELECT count(*)
 FROM duckdb_functions()
-WHERE function_name LIKE 'open_%';
+WHERE function_name LIKE 'op_%';
 ----
 21
 
 # 只读预览在本机确实跑通了（这一步不起任何进程）
 query T
-SELECT len(open_commands('duckdb_open.test')) > 0;
+SELECT len(op_open_commands('duckdb_open.test')) > 0;
 ----
 true
 
 # NULL 输入不会走到启动器：加载后第一次调用也保持这个语义
 query T
-SELECT open_path(NULL);
+SELECT op_open_path(NULL);
 ----
 NULL

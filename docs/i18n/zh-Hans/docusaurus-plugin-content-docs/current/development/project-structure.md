@@ -14,18 +14,18 @@ src/bin/duckfn.rs      duckfn CLI 入口  ->  #[path] mod extension; + duckfn::c
 
 src/extension/functions/
     mod.rs                  下面每个文件一行 `mod …;`，按字母序（这份清单按族类排）
-    scalar_open_path.rs     open_path / open_path_detached，各两个签名
-    scalar_open_commands.rs open_commands（VARCHAR -> VARCHAR[]，不起任何进程）
-    scalar_open_write.rs    open_write      四个签名，只落盘
-    scalar_open_content.rs  open_content    四个签名，落盘接着打开
-    scalar_open_html.rs     open_html       零配置的 HTML 快捷方式
-    scalar_open_print.rs    open_print      两个签名，直接打 stdout
-    scalar_open_filename.rs open_filename / open_filename_check，五个签名，纯字符串
+    scalar_op_open_path.rs     op_open_path / op_open_path_detached，各两个签名
+    scalar_op_open_commands.rs op_open_commands（VARCHAR -> VARCHAR[]，不起任何进程）
+    scalar_op_write.rs    op_write      四个签名，只落盘
+    scalar_op_open_content.rs  op_open_content    四个签名，落盘接着打开
+    scalar_op_open_html.rs     op_open_html       零配置的 HTML 快捷方式
+    scalar_op_print.rs    op_print      两个签名，直接打 stdout
+    scalar_op_filename.rs op_filename / op_filename_check，五个签名，纯字符串
 src/extension/launcher.rs   压在 open 这个 crate 之上的平台层（唯一调用它的文件）
 src/extension/writer.rs     内容 -> 文件 -> 路径：后缀、目录、命名、合法性
 src/extension/types/
     mod.rs                  面向 SQL 的类型层
-    open_write_options.rs   注册进 DuckDB 的 STRUCT 类型 `open_write_options`
+    op_write_options.rs   注册进 DuckDB 的 STRUCT 类型 `op_write_options`
 
 test/sql/                  duckfn_open.test（冒烟）+ 每个函数文件一份 .test
 scripts/rename.sh           克隆后改扩展名
@@ -72,7 +72,7 @@ flowchart LR
 
 于是一个名字要多一个参数、一个平台要多一个启动器、一条命名规则要多一个例外，各自只落在一处文件里。
 
-`scalar_open_filename.rs` 是 `functions/` 那一行的例外：它没有进程要起、也没有文件要写，SQL 边界就是
+`scalar_op_filename.rs` 是 `functions/` 那一行的例外：它没有进程要起、也没有文件要写，SQL 边界就是
 这件事的全部 —— 它自己直接调
 [`sanitize-filename`](https://crates.io/crates/sanitize-filename)，把那个库的两个入口（改写、判断）原样
 接到 SQL 上。所以它是下面那两层的**兄弟**，而不是任何一层的调用方
@@ -84,17 +84,17 @@ flowchart LR
 [`open`](https://crates.io/crates/open) 这个 crate 的文件。它的全部对外面就是七个函数，分三组：
 
 1. 四个把 `io::Result<()>` 压成 `bool` 的动作（默认程序 / 指定程序 × 等 / 不等），这就是
-   `open_path` 那一族的返回值；
+   `op_open_path` 那一族的返回值；
 2. `open_default_checked`，同一次不等的启动，只是把失败换成了错误 —— 下面细说；
 3. `preview_commands`，把 open 会跑的 `Vec<Command>` 渲染成字符串列表，外加 `check_not_empty`，
    SQL 边界上要做的参数校验。
 
-`open_default_checked` 之所以存在，是因为 `open_content` 与 `open_html` 的返回值已经花在写出来的路径上
+`open_default_checked` 之所以存在，是因为 `op_open_content` 与 `op_open_html` 的返回值已经花在写出来的路径上
 了：启动失败在那里没有别的位置可去，只能报错，而且报文要带着那个路径（文件确实在磁盘上，只是这台机器
 没有桌面能把它展示出来）。把它从「返回 bool」那一组里单分出来，守住的是一条规则 ——
 启动器的结论要么进返回值、要么进错误，不会两边都占。
 
-`check_not_empty` 是五个走启动器那条路的签名（`open_path` 四个 + `open_commands`）在 SQL 边界上做的校验，
+`check_not_empty` 是五个走启动器那条路的签名（`op_open_path` 四个 + `op_open_commands`）在 SQL 边界上做的校验，
 写成一处而不是抄五遍，报文才始终一个样子。路径除了「不是空串」之外不再做更多检查：一个字符串到底是
 可用的路径还是 URL，那是 open 的判断，这一层不替它重新决定。
 
@@ -110,7 +110,7 @@ flowchart LR
 字节。`writer.rs` 就是缺的那一步 —— 内容 → 文件 → 路径 —— 它只有一个入口：
 `write(bytes, extension, options)`。
 
-为什么它单独是一层、而不是某个函数文件里的小工具：`open_write`、`open_content`、`open_html` 走的都是同
+为什么它单独是一层、而不是某个函数文件里的小工具：`op_write`、`op_open_content`、`op_open_html` 走的都是同
 一条 `writer::write`，所以下面这些规则只存在一份，三个名字一起生效；将来第四个要落盘的名字是白拿的。
 
 这一层里有什么：
@@ -132,43 +132,43 @@ flowchart LR
 
 ## 纯字符串那一族
 
-`scalar_open_filename.rs` 装着 `open_filename`（三个签名）与 `open_filename_check`（两个签名）。它挂在
+`scalar_op_filename.rs` 装着 `op_filename`（三个签名）与 `op_filename_check`（两个签名）。它挂在
 `functions/` 底下，却**两层都不调**：不起进程、不写文件，`VARCHAR` 进去，出来的是一条 `VARCHAR` 或一个
 `BOOLEAN`。它真正是的东西 —— 也正是让它成为那两层的兄弟、而不是调用方的那一点 —— 是
 `sanitize-filename` 这个库自己的对外面，原样接到了 SQL 上。
 
 这个库维护的是「一个字符串能不能当文件名」：非法字符 `/ \ ? < > : * | "`、控制字符、整段只是点的名字
 （`.` 和 `..`）、Windows 保留的设备名（`CON`、`PRN`、`AUX`、`NUL`、`COM0-9`、`LPT0-9`，带后缀也算）、
-结尾的点与空格，还有 255 **字节**这一刀。`open_filename` 后面那三个参数就是库里 `Options` 的字段，缺省也
+结尾的点与空格，还有 255 **字节**这一刀。`op_filename` 后面那三个参数就是库里 `Options` 的字段，缺省也
 跟着库走 —— 所以非法字符是被**删掉**的（`replacement` 是空串；想看见改过的地方就给定一个替换符），那一刀
 是开着的。
 
 **只有一处缺省不跟库走：`windows` 钉死成 `true`。** 库里这一项的缺省是*编译时所在的那个平台*，那会让同一条
 SQL 在两台机器上给出两个答案；`true` 是最严的一套，三个平台上同形。要 Unix 那套规则就给这一项传
-`false` —— 在那套规则下 `open_filename('CON.txt', '_', true, false)` 会把名字留着，而
-`open_filename_check('CON.txt')` 仍然是 `false`，因为那一句问的是 Windows。
+`false` —— 在那套规则下 `op_filename('CON.txt', '_', true, false)` 会把名字留着，而
+`op_filename_check('CON.txt')` 仍然是 `false`，因为那一句问的是 Windows。
 
-它们**不是 `open_write` 的助手**，尽管落盘那一族内部用的就是同一个库 —— 策略并不一样：`open_write` 的
-`name` 换成 `_`、从不截断，而 `open_filename` 是删掉、并且截断。两套缺省各写各的文档，谁都不是另一个的
-替身。这个决定就刻在 API 的形状上：`open_filename` **没有三个参数的形式**，因为 `truncate` 与 `windows`
+它们**不是 `op_write` 的助手**，尽管落盘那一族内部用的就是同一个库 —— 策略并不一样：`op_write` 的
+`name` 换成 `_`、从不截断，而 `op_filename` 是删掉、并且截断。两套缺省各写各的文档，谁都不是另一个的
+替身。这个决定就刻在 API 的形状上：`op_filename` **没有三个参数的形式**，因为 `truncate` 与 `windows`
 只能一起给 —— 这是这份 API 里唯一的一处压缩（两个 BOOLEAN 摆在可选位置上是五种组合，其中只有这个库自己
-缺省的那两种值得再给一个更短的形式）；`open_filename_check` 干脆没有 `replacement`，因为一个什么都不改写
-的问题没有「换成什么」这一项。它回 `true` 的充要条件，是在同样的开关下 `open_filename` 会把拿到的值原样
-还回来 —— 正因如此 `WHERE NOT open_filename_check(name)` 是一次体检，而不是一次悄悄改写。任何一个参数是
+缺省的那两种值得再给一个更短的形式）；`op_filename_check` 干脆没有 `replacement`，因为一个什么都不改写
+的问题没有「换成什么」这一项。它回 `true` 的充要条件，是在同样的开关下 `op_filename` 会把拿到的值原样
+还回来 —— 正因如此 `WHERE NOT op_filename_check(name)` 是一次体检，而不是一次悄悄改写。任何一个参数是
 `NULL`，这一行就是 `NULL`。
 
-还有一处刻意的**不给**：`open_write` 内部那条自动命名的 `part` 规则（空格并成 `_`、最长 48 个字符）没有
+还有一处刻意的**不给**：`op_write` 内部那条自动命名的 `part` 规则（空格并成 `_`、最长 48 个字符）没有
 注册成 SQL 名字。那是本扩展自己的约定，不是那个库的规则，给它一个名字等于暗示调用方可以在写盘之外照着它
 依赖。
 
 ## 面向 SQL 的类型：`types/`
 
 `extension/types/` 放的是出现在 SQL 里、而不是出现在某个 Rust 调用里的类型。目前有一个：
-`open_write_options`，承载 `open_write` / `open_content` 那三个可选项（`dir`、`name`、`part`）的 STRUCT：
+`op_write_options`，承载 `op_write` / `op_open_content` 那三个可选项（`dir`、`name`、`part`）的 STRUCT：
 
 ```rust
 #[derive(Clone, Debug, Default, DuckStruct)]
-#[duck(sql_name = "open_write_options", create_type = "replace")]
+#[duck(sql_name = "op_write_options", create_type = "replace")]
 pub(crate) struct OpenWriteOptions {
     pub dir: Option<String>,
     pub name: Option<String>,
@@ -179,15 +179,15 @@ pub(crate) struct OpenWriteOptions {
 这个形状在干三件事（字段级的两条见[编写函数](./writing-functions.md)）：
 
 - 比三个同类型的可选位置参数好读，也比一段 JSON 好校验 —— 字段拼错在 binder 那一层就报错，不必等运行期；
-- 它让这些名字不再扩散：选项是一个参数，所以 `open_write` 只有两种 arity，而不是四种；
-- 它刻意**不含** `app` 字段。用哪个程序打开是 `open_path(path, app)` 的事，把路径交给它才是这套 API 的
+- 它让这些名字不再扩散：选项是一个参数，所以 `op_write` 只有两种 arity，而不是四种；
+- 它刻意**不含** `app` 字段。用哪个程序打开是 `op_open_path(path, app)` 的事，把路径交给它才是这套 API 的
   组合方式。
 
 同样该放进这一层的还有：用 `#[duck_enum]` 注册的具名类型、`list<struct<…>>` 返回值的行类型、
 `DuckLazy` 参数要解析的那个配置类型。可见性按「谁读它」放宽一档 —— 这里是 `pub(crate)`，因为
 `functions` 子树要读它。
 
-还有一样是刻意**不**放进来的：`open_filename` / `open_filename_check` 不注册任何类型，所以
+还有一样是刻意**不**放进来的：`op_filename` / `op_filename_check` 不注册任何类型，所以
 `duckdb_types()` 里查不出新东西。它们的选项是两个只有成对才有意义的 BOOLEAN —— 那是一份参数列表，不是一个
 值得注册成 SQL 类型的形状（见下文「纯字符串那一族」）。
 
@@ -202,15 +202,16 @@ pub(crate) struct OpenWriteOptions {
 
 ## 每个函数一个文件，前缀即命名空间
 
-`functions/` 下的文件名是「哪一类 + 做什么」：`scalar_open_path.rs` 装着两个启动器名字（四个签名，因为
-每个名字各有 `(path)` 与 `(path, app)` 两个形式），`scalar_open_write.rs` 装着 `open_write` 的四个签名，
-`scalar_open_commands.rs` 装着那个只读预览，`scalar_open_filename.rs` 装着那两个纯字符串名字（五个签名），
+`functions/` 下的文件名是「哪一类 + 做什么」：`scalar_op_open_path.rs` 装着两个启动器名字（四个签名，因为
+每个名字各有 `(path)` 与 `(path, app)` 两个形式），`scalar_op_write.rs` 装着 `op_write` 的四个签名，
+`scalar_op_open_commands.rs` 装着那个只读预览，`scalar_op_filename.rs` 装着那两个纯字符串名字（五个签名），
 两层都不碰。某个功能长大之后再像 duckfn 示例那样拆成子目录
 （`functions/<功能>/mod.rs` + 各司其职的文件）。
 
-每个注册进 SQL 的名字都带同一个短前缀（这里是 `open_`）；理由在 `AGENTS.md`：社区扩展几乎都不把包名
+每个注册进 SQL 的名字都带同一个短前缀（这里是 `op_`）；理由在 `AGENTS.md`：社区扩展几乎都不把包名
 写进函数名，而短前缀足够在 `duckdb_functions()` 里检索。前缀是命名空间，不是扩展名的缩写，所以改扩展名
-时它不跟着变。
+时它不跟着变。前缀之下还有一层：会起启动器的那几个带 `op_open_`（`op_open_commands` 也在内，因为它预览的
+正是这些），其余的并不说「open」—— `op_write`、`op_print`、`op_filename`。
 
 ## 依赖
 
@@ -235,8 +236,8 @@ pub(crate) struct OpenWriteOptions {
   `/ \ ? < > : * | "`、控制字符、Windows 保留设备名（`CON`、`NUL`、`COM1`…）与结尾的点与空格。规则归它管，
   我们说的是策略，而这里有两**套**策略。`writer.rs` 换成 `_`、不截断（它按 255 **字节**截一刀，太宽松；长度
   这事由我们自己按字符数管），并且把 `windows: true` 写死，于是一套规则在三个平台都成立。
-  `scalar_open_filename.rs` 则是把这个库自己的对外面交给 SQL —— 缺省照库走（删掉而不是替换、那一刀开着），
-  只有 `windows` 同样钉死；它明确**不是** `open_write` 的助手（见下文「纯字符串那一族」）。
+  `scalar_op_filename.rs` 则是把这个库自己的对外面交给 SQL —— 缺省照库走（删掉而不是替换、那一刀开着），
+  只有 `windows` 同样钉死；它明确**不是** `op_write` 的助手（见下文「纯字符串那一族」）。
 - **[tempfile](https://crates.io/crates/tempfile)** —— 自动名字的随机尾缀、撞名时的重试，以及「这个名字当时
   确实是空的」这个保证；`writer.rs` 自己测试用的临时目录也是它的事。另一条路是「自己拼一个随机数再去
   `Path::exists` 轮询」，那会留下 TOCTOU 的窗口，随机源还得自己找。
@@ -276,7 +277,7 @@ feature 管的是 `DuckDate` / `DuckTimestamp` 与 chrono 类型互转，而本�
 | 规则 | 为什么 |
 | --- | --- |
 | 扩展名全小写、只含下划线，且五处一致。 | 它既是入口点符号，也是产物文件名；DuckDB 是按文件名去找符号的。`just rename` 负责写全这五处。 |
-| 每个注册进 SQL 的名字共用一个短前缀（这里是 `open_`）。 | DuckDB 没有命名空间，而社区扩展几乎都不把包名写进函数名。约定见 `AGENTS.md`。 |
+| 每个注册进 SQL 的名字共用一个短前缀（这里是 `op_`）。 | DuckDB 没有命名空间，而社区扩展几乎都不把包名写进函数名。约定见 `AGENTS.md`。 |
 | 临时文件（脚本、数据、日志）放 `target/`。 | `target/` 已被 git 忽略，不会污染被跟踪的目录。 |
 | 文本文件一律 LF。 | 仓库按 LF 入库，`.gitattributes` 的归一化依赖这一点。 |
 

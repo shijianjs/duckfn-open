@@ -3,11 +3,11 @@
 //
 // 这一层只有两个职责，每个函数都薄到一眼看得完：
 //
-//   1. 把 `io::Result<()>` 压成 `bool` —— SQL 侧就返回它（true 表示启动器被成功拉起，见 scalar_open_path.rs）；
+//   1. 把 `io::Result<()>` 压成 `bool` —— SQL 侧就返回它（true 表示启动器被成功拉起，见 scalar_op_open_path.rs）；
 //   2. 把 `&str` 交给 open（它要的是 `OsStr` 与 app 名），并把 `Vec<Command>` 渲染成字符串列表。
 //
-// 启动这一件事全部经过这一个模块，函数文件因此只面对三种形状：返回 bool 的四个动作（`open_path` 那一族）、
-// 把路径当返回值因而改用报错的 open_content / open_html，以及一个会报错的预览（`open_commands`）。
+// 启动这一件事全部经过这一个模块，函数文件因此只面对三种形状：返回 bool 的四个动作（`op_open_path` 那一族）、
+// 把路径当返回值因而改用报错的 op_open_content / op_open_html，以及一个会报错的预览（`op_open_commands`）。
 // 这里不需要 `#[cfg]`：启动器是桌面软件，本扩展只构建桌面平台，没有 wasm 目标（见根目录 AGENTS.md）。
 //
 // Example：open 自己承担的事——各平台入口、参数引用、WSL 与 Wine 的分支、启动器起不来的错误——这里
@@ -19,13 +19,13 @@
 // Two jobs, each function one line thin:
 //
 //   1. squash `io::Result<()>` into `bool` — the SQL return value (true means the launcher was started,
-//      see scalar_open_path.rs);
+//      see scalar_op_open_path.rs);
 //   2. hand `&str` to open (which wants `OsStr` and an app name) and render `Vec<Command>` as strings.
 //
 // Everything that starts a program goes through this one module, so the function files face three shapes:
-// the four actions returning a bool (the `open_path` family), the pair whose return value is already a path
-// and so reports a launch failure as an error (open_content / open_html), and one fallible preview
-// (`open_commands`). No `#[cfg]` is needed here: a launcher is desktop software, and this extension builds
+// the four actions returning a bool (the `op_open_path` family), the pair whose return value is already a path
+// and so reports a launch failure as an error (op_open_content / op_open_html), and one fallible preview
+// (`op_open_commands`). No `#[cfg]` is needed here: a launcher is desktop software, and this extension builds
 // for desktop targets only (no wasm target; see AGENTS.md).
 //
 // Everything open already owns — the per-platform entry points, argument quoting, the WSL and Wine
@@ -78,22 +78,22 @@ pub(crate) fn open_with_app_detached(path: &str, app: &str) -> bool {
 /// 用系统默认程序打开，起进程即返回；**起不来就报错**（`open::that_detached`）。
 ///
 /// 与 [`open_default_detached`] 的区别只在错误往哪儿放。那一个的返回值就是它的结论（BOOLEAN），
-/// 而 `open_content` / `open_html` 的返回值已经是写好的路径了，启动失败在那里没有位置 —— 只能报错，
+/// 而 `op_open_content` / `op_open_html` 的返回值已经是写好的路径了，启动失败在那里没有位置 —— 只能报错，
 /// 并且错误里要带上路径：文件已经在磁盘上了，用户要知道去哪儿手工打开。
 ///
 /// 不等启动器退出：探索的时候一次查询不该被「等浏览器关掉」挂住。要拿启动器的结果，用
-/// [`open_default`] 那一族（`open_path`）。
+/// [`open_default`] 那一族（`op_open_path`）。
 ///
 /// Open with the default program and return as soon as the launcher is started, **reporting an error
 /// when it is not** (`open::that_detached`).
 ///
 /// The difference from [`open_default_detached`] is only where the error goes: there, the return value
-/// is the verdict (BOOLEAN), while `open_content` / `open_html` already spend their return value on the
+/// is the verdict (BOOLEAN), while `op_open_content` / `op_open_html` already spend their return value on the
 /// path they wrote, so a launch failure has nowhere to go but an error — one that carries the path,
 /// because the file is on disk and the user needs to know where to open it by hand.
 ///
 /// It does not wait for the launcher to exit: an exploratory session should not be blocked on a browser
-/// being closed. Use the [`open_default`] family (`open_path`) to get the launcher's outcome.
+/// being closed. Use the [`open_default`] family (`op_open_path`) to get the launcher's outcome.
 pub(crate) fn open_default_checked(sql_name: &str, path: &str) -> DuckResult<()> {
     open::that_detached(path).map_err(|err| {
         duck_error(format!(

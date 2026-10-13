@@ -1,5 +1,5 @@
-# name: test/sql/open_commands.test
-# description: open_commands：只读预览的返回形状、NULL 短路、参数校验、跨 DataChunk
+# name: test/sql/op_open_commands.test
+# description: op_open_commands：只读预览的返回形状、NULL 短路、参数校验、跨 DataChunk
 # group: [duckfn_open]
 
 require duckfn_open
@@ -7,19 +7,19 @@ require duckfn_open
 query TII
 SELECT function_name, len(parameters), return_type
 FROM duckdb_functions()
-WHERE function_name = 'open_commands';
+WHERE function_name = 'op_open_commands';
 ----
-open_commands	1	VARCHAR[]
+op_open_commands	1	VARCHAR[]
 
 # 只列命令、一条都不执行，所以这一步在任何机器上都可断言
 query T
-SELECT typeof(open_commands('report.html'));
+SELECT typeof(op_open_commands('report.html'));
 ----
 VARCHAR[]
 
 # 候选序列非空：open 至少给每个平台排了一个启动器
 query T
-SELECT len(open_commands('report.html')) > 0;
+SELECT len(op_open_commands('report.html')) > 0;
 ----
 true
 
@@ -27,41 +27,41 @@ true
 # 它排在 explorer.exe 前面，所以这里断言「至少一个」而不是「每一个」）
 query T
 SELECT count(*) >= 1
-FROM (SELECT unnest(open_commands('report.html')) AS cmd)
+FROM (SELECT unnest(op_open_commands('report.html')) AS cmd)
 WHERE cmd LIKE '%report.html%';
 ----
 true
 
 # 常量 NULL 短路，函数体不执行
 query T
-SELECT open_commands(NULL);
+SELECT op_open_commands(NULL);
 ----
 NULL
 
 query I
-SELECT count(*) FROM (VALUES (NULL), (NULL)) t(s) WHERE open_commands(s) IS NULL;
+SELECT count(*) FROM (VALUES (NULL), (NULL)) t(s) WHERE op_open_commands(s) IS NULL;
 ----
 2
 
 # 空路径同样在边界上报错
 statement error
-SELECT open_commands('');
+SELECT op_open_commands('');
 ----
-open_commands: the path or URL must not be empty
+op_open_commands: the path or URL must not be empty
 
 # 只有单参数签名：多给一个 app 由 binder 拦下
 statement error
-SELECT open_commands('report.html', 'firefox');
+SELECT op_open_commands('report.html', 'firefox');
 ----
 Binder Error
 
 statement error
-SELECT open_commands(42);
+SELECT op_open_commands(42);
 ----
 Binder Error
 
 # 跨多个 DataChunk（STANDARD_VECTOR_SIZE = 2048）：这一条不起任何进程，所以量大也不打扰桌面
 query I
-SELECT count(*) FROM range(3000) t(x) WHERE len(open_commands('report.html')) > 0;
+SELECT count(*) FROM range(3000) t(x) WHERE len(op_open_commands('report.html')) > 0;
 ----
 3000

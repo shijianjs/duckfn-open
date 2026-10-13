@@ -12,10 +12,10 @@
 // This layer holds only what carries a `#[duck_*]` attribute and is reachable from SQL; the layer that
 // absorbs the platform differences is `extension/launcher.rs`, which the files below call instead of
 // using `open::` directly.
-mod scalar_open_commands;
-mod scalar_open_content;
-mod scalar_open_filename;
-mod scalar_open_html;
-mod scalar_open_path;
-mod scalar_open_print;
-mod scalar_open_write;
+mod scalar_op_open_commands;
+mod scalar_op_open_content;
+mod scalar_op_filename;
+mod scalar_op_open_html;
+mod scalar_op_open_path;
+mod scalar_op_print;
+mod scalar_op_write;

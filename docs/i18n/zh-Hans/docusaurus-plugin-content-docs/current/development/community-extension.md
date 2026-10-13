@@ -32,17 +32,17 @@ LOAD duckfn_open;
 
 ```rust
 #[duck_scalar_function(
-    description = "Lists, without running them, the launcher commands open_path would try in order",
-    comment = "The read-only pair of open_path: nothing is started, so the result is stable enough to \
+    description = "Lists, without running them, the launcher commands op_open_path would try in order",
+    comment = "The read-only pair of op_open_path: nothing is started, so the result is stable enough to \
                assert in CI on a headless runner",
-    example = "SELECT open_commands('report.html')"
+    example = "SELECT op_open_commands('report.html')"
 )]
 ```
 
-`open_path` 用的不是单个 `example` 而是 `examples = [ … ]`，因为它有两个值得展示的调用形式
+`op_open_path` 用的不是单个 `example` 而是 `examples = [ … ]`，因为它有两个值得展示的调用形式
 （`(path)` 与 `(path, app)`）；导出时它们用 `"; "` 拼在一起。CSV 里也是**一个 SQL 名字一行** ——
 这个扩展二十一个签名并成九行 —— 而不是一个签名一行：靠 `overloads_name` 并进来的签名会被折进同一个函数集，
-所以 `open_write` 有四个签名也还是一行。
+所以 `op_write` 有四个签名也还是一行。
 
 这个「合并」正是文案只写在**一个**签名上的原因。`description` 与 `comment` 取的是编译期注册表迭代顺序里
 第一个非空值，而那是链接顺序、不是源码顺序 —— 两条 overload 都写文案的话，导出结果取哪一条就取决于链接器
@@ -91,7 +91,7 @@ flowchart LR
 | `extension.maintainers` | 你的 GitHub 账号。 |
 | `repo.github` | `owner/repository`。 |
 | `repo.ref` | 发布那一版的**提交 SHA**（40 位）—— `git rev-list -n 1 v0.1.0` —— 不要写 `main`，也不要写 tag 名。注册项指向的应当是不可变的代码，而从分支构建出的产物会自称开发版本。 |
-| `docs.hello_world` | 可直接复制跑的示例，会渲染进代码块。不要在这里写 `INSTALL` / `LOAD`：页面自己会加。`community-extension/description.yml` 里那份草稿两半各给了一条 —— `open_commands` 与 `open_write`，两者都不起进程 —— 然后是一条 `open_path`，最后用 `open_path(NULL)` 收尾，那一行根本没有输入。 |
+| `docs.hello_world` | 可直接复制跑的示例，会渲染进代码块。不要在这里写 `INSTALL` / `LOAD`：页面自己会加。`community-extension/description.yml` 里那份草稿两半各给了一条 —— `op_open_commands` 与 `op_write`，两者都不起进程 —— 然后是一条 `op_open_path`，最后用 `op_open_path(NULL)` 收尾，那一行根本没有输入。 |
 | `docs.extended_description` | 函数表周围的正文。 |
 
 每个字段的来历与提交步骤，`community-extension/AGENTS.md` 里讲得更细。

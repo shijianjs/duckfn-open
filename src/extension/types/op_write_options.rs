@@ -1,14 +1,14 @@
 use duckfn::DuckStruct;
 
 // ============================================================================
-// `open_write_options`：把内容落盘时的三个可选项
+// `op_write_options`：把内容落盘时的三个可选项
 //
-// `open_write` / `open_content` 的第 3 个参数。内容（VARCHAR 或 BLOB）与后缀（必填的第 2 个参数）
+// `op_write` / `op_open_content` 的第 3 个参数。内容（VARCHAR 或 BLOB）与后缀（必填的第 2 个参数）
 // 之外，剩下三件事都放这里，于是这个函数永远只有两种 arity：
 //
 // ```sql
-// SELECT open_write(html, 'html');                                    -- 全默认
-// SELECT open_write(html, 'html', {'dir':'./out','part':'sales'});    -- 只挑两个选项
+// SELECT op_write(html, 'html');                                    -- 全默认
+// SELECT op_write(html, 'html', {'dir':'./out','part':'sales'});    -- 只挑两个选项
 // ```
 //
 // 三个字段**全部**是 `Option<T>`，这是硬要求：DuckDB 的 struct 字面量缺字段时补 NULL，而 duckfn 读到
@@ -19,9 +19,9 @@ use duckfn::DuckStruct;
 // 落盘的形状归 writer.rs，起进程的形状归 launcher.rs。
 //
 // ----------------------------------------------------------------------------
-// `open_write_options`: the three optional settings for writing content out.
+// `op_write_options`: the three optional settings for writing content out.
 //
-// The third argument of `open_write` / `open_content`. Everything except the content (VARCHAR or BLOB)
+// The third argument of `op_write` / `op_open_content`. Everything except the content (VARCHAR or BLOB)
 // and the extension (the required second argument) lives here, so those functions have exactly two
 // arities.
 //
@@ -37,16 +37,16 @@ use duckfn::DuckStruct;
 
 /// 内容落盘的可选项，字段名即 SQL 里的键名。
 ///
-/// 刻意**不含**「用哪个程序打开」：那是 `open_path(path, app)` 的事，把路径交给它是组合的用法，
+/// 刻意**不含**「用哪个程序打开」：那是 `op_open_path(path, app)` 的事，把路径交给它是组合的用法，
 /// 而不是每个写函数再抄一遍启动参数。
 ///
 /// The optional settings for writing content out; the Rust field names are the keys used in SQL.
 ///
-/// It deliberately holds no "which program opens it": that is `open_path(path, app)`'s job, and handing
+/// It deliberately holds no "which program opens it": that is `op_open_path(path, app)`'s job, and handing
 /// it the path is the composable way to say so, instead of every writer copying the launcher arguments.
 #[derive(Clone, Debug, Default, DuckStruct)]
-#[duck(sql_name = "open_write_options", create_type = "replace")]
-pub(crate) struct OpenWriteOptions {
+#[duck(sql_name = "op_write_options", create_type = "replace")]
+pub(crate) struct OpWriteOptions {
     /// 输出目录。缺省用系统临时目录；目录不存在时递归创建。
     ///
     /// The output directory. The system temp directory when unset; created (with any missing parents)

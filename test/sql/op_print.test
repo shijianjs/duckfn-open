@@ -1,5 +1,5 @@
-# name: test/sql/open_print.test
-# description: open_print：注册形状、返回 NULL、逐行求值、NULL 短路
+# name: test/sql/op_print.test
+# description: op_print：注册形状、返回 NULL、逐行求值、NULL 短路
 # group: [duckfn_open]
 
 # 这个函数是唯一可以**真的调用**的：它不起进程、不碰文件系统，只往 stdout 写。写出去的那段文字落在
@@ -15,16 +15,16 @@ require duckfn_open
 query TI
 SELECT function_name, len(parameters)
 FROM duckdb_functions()
-WHERE function_name = 'open_print'
+WHERE function_name = 'op_print'
 ORDER BY len(parameters);
 ----
-open_print	1
-open_print	2
+op_print	1
+op_print	2
 
 query T
 SELECT count(DISTINCT return_type) = 1 AND min(return_type) = 'VARCHAR'
 FROM duckdb_functions()
-WHERE function_name = 'open_print';
+WHERE function_name = 'op_print';
 ----
 true
 
@@ -33,31 +33,31 @@ true
 # ============================================================================
 
 query T
-SELECT open_print('hello');
+SELECT op_print('hello');
 ----
 NULL
 
 # 空串也是「有内容」：打出去的是那个 tail
 query T
-SELECT open_print('');
+SELECT op_print('');
 ----
 NULL
 
 # tail 照给的来，`''` 就是「接着同一行打」
 query T
-SELECT open_print('no newline', '');
+SELECT op_print('no newline', '');
 ----
 NULL
 
 query T
-SELECT open_print('a line', chr(10) || chr(10));
+SELECT op_print('a line', chr(10) || chr(10));
 ----
 NULL
 
 # 逐行求值，所以三行打三次，每次都返回 NULL。参数里带上列引用（`'row ' || x`）而不是常量 ——
 # 常量表达式会被折叠，那种写法只打一次，看不出「每行一次」。
 query I
-SELECT count(*) FROM (VALUES (1), (2), (3)) t(x) WHERE open_print('row ' || x) IS NULL;
+SELECT count(*) FROM (VALUES (1), (2), (3)) t(x) WHERE op_print('row ' || x) IS NULL;
 ----
 3
 
@@ -66,12 +66,12 @@ SELECT count(*) FROM (VALUES (1), (2), (3)) t(x) WHERE open_print('row ' || x) I
 # ============================================================================
 
 query TT
-SELECT open_print(NULL), open_print('a', NULL);
+SELECT op_print(NULL), op_print('a', NULL);
 ----
 NULL	NULL
 
 query I
-SELECT count(*) FROM (VALUES (NULL), (NULL)) t(c) WHERE open_print(c) IS NOT NULL;
+SELECT count(*) FROM (VALUES (NULL), (NULL)) t(c) WHERE op_print(c) IS NOT NULL;
 ----
 0
 
@@ -80,22 +80,22 @@ SELECT count(*) FROM (VALUES (NULL), (NULL)) t(c) WHERE open_print(c) IS NOT NUL
 # ============================================================================
 
 statement error
-SELECT open_print();
+SELECT op_print();
 ----
 Binder Error
 
 statement error
-SELECT open_print('a', 'b', 'c');
+SELECT op_print('a', 'b', 'c');
 ----
 Binder Error
 
 statement error
-SELECT open_print(42);
+SELECT op_print(42);
 ----
 Binder Error
 
 # Rust 的分支名没有泄漏成额外的 SQL 函数
 query I
-SELECT count(*) FROM duckdb_functions() WHERE function_name = 'open_print_with_tail';
+SELECT count(*) FROM duckdb_functions() WHERE function_name = 'op_print_with_tail';
 ----
 0

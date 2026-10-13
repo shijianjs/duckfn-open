@@ -72,10 +72,10 @@ WHERE extension_name = 'duckfn_open';
 ```sql
 SELECT function_name, len(parameters), return_type
 FROM duckdb_functions()
-WHERE function_name LIKE 'open%';
+WHERE function_name LIKE 'op%';
 ```
 
-这个扩展注册九个名字，对应二十一行（`open_write` 与 `open_content` 各四个签名 —— 文本与二进制 × 带选项与
-不带选项；`open_path`、`open_path_detached`、`open_print` 与 `open_filename_check` 各两个；`open_filename`
-三个；`open_commands` 与 `open_html` 各一个）。落盘签名要传的那个选项 STRUCT 是注册的类型而不是函数，所以
+这个扩展注册九个名字，对应二十一行（`op_write` 与 `op_open_content` 各四个签名 —— 文本与二进制 × 带选项与
+不带选项；`op_open_path`、`op_open_path_detached`、`op_print` 与 `op_filename_check` 各两个；`op_filename`
+三个；`op_open_commands` 与 `op_open_html` 各一个）。落盘签名要传的那个选项 STRUCT 是注册的类型而不是函数，所以
 它出现在 `duckdb_types()` 里，不在这里。如果一行都没有，说明你查的这个会话里没有加载这个扩展。

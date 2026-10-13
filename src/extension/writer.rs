@@ -1,16 +1,16 @@
 use duckfn::{DuckResult, duck_error};
 
-use crate::extension::types::open_write_options::OpenWriteOptions;
+use crate::extension::types::op_write_options::OpWriteOptions;
 
 // ============================================================================
 // 落盘层：把一段**内容**（VARCHAR 或 BLOB 的字节）写成一个文件，返回它的路径
 //
 // 这个扩展的启动器只认路径、不认内容，而 SQL 里躺着的是内容（渲染好的 HTML、SVG、一段 CSV、BLOB 里的
-// PNG 字节）。这一层就是补上这一步：内容 → 文件 → 路径，之后路径可以交给 `open_path` 那一族，也可以由
-// `open_content` / `open_html` 直接接着打开。
+// PNG 字节）。这一层就是补上这一步：内容 → 文件 → 路径，之后路径可以交给 `op_open_path` 那一族，也可以由
+// `op_open_content` / `op_open_html` 直接接着打开。
 //
 // 只有一个入口 [`write`]，形状是 `(字节, 后缀, 选项)`：后缀必填，`dir` / `name` / `part` 三个都可选
-// （见 types/open_write_options.rs）。规则如下：
+// （见 types/op_write_options.rs）。规则如下：
 //
 // | 选项 | 缺省 | 给了之后 |
 // | --- | --- | --- |
@@ -38,11 +38,11 @@ use crate::extension::types::open_write_options::OpenWriteOptions;
 //
 // The launchers in this extension understand paths, not content, while what SQL holds is content (a
 // rendered HTML or SVG, a CSV, the PNG bytes of a BLOB). This layer is that missing step: content →
-// file → path, after which the path goes to the `open_path` family, or straight to a launcher through
-// `open_content` / `open_html`.
+// file → path, after which the path goes to the `op_open_path` family, or straight to a launcher through
+// `op_open_content` / `op_open_html`.
 //
 // There is one entry point, [`write`], shaped `(bytes, extension, options)`: the extension is required
-// and `dir` / `name` / `part` are all optional (see types/open_write_options.rs).
+// and `dir` / `name` / `part` are all optional (see types/op_write_options.rs).
 //
 // | option | default | when given |
 // | --- | --- | --- |
@@ -96,7 +96,7 @@ const MAX_PART_CHARS: usize = 48;
 pub(crate) fn write(
     content: &[u8],
     extension: &str,
-    options: Option<&OpenWriteOptions>,
+    options: Option<&OpWriteOptions>,
 ) -> DuckResult<String> {
     let extension = normalize_extension(extension)?;
     let dir = resolve_dir(options)?;
@@ -114,12 +114,12 @@ pub(crate) fn write(
     Ok(path)
 }
 
-/// 取 `OpenWriteOptions` 里的一个字段，顺带把「整个 struct 是 NULL」和「没传第 3 个参数」两种情况并成
+/// 取 `OpWriteOptions` 里的一个字段，顺带把「整个 struct 是 NULL」和「没传第 3 个参数」两种情况并成
 /// 同一条 `None`。
 ///
-/// Read one field of `OpenWriteOptions`, folding "the whole struct is NULL" and "no third argument was
+/// Read one field of `OpWriteOptions`, folding "the whole struct is NULL" and "no third argument was
 /// passed" into the same `None`.
-fn option_field<T>(options: Option<&OpenWriteOptions>, get: impl Fn(&OpenWriteOptions) -> Option<&T>) -> Option<&T> {
+fn option_field<T>(options: Option<&OpWriteOptions>, get: impl Fn(&OpWriteOptions) -> Option<&T>) -> Option<&T> {
     options.and_then(get)
 }
 
@@ -133,10 +133,10 @@ fn option_field<T>(options: Option<&OpenWriteOptions>, get: impl Fn(&OpenWriteOp
 ///
 /// An empty string fails right here: it is neither a directory nor a way of writing a relative path, and
 /// the file system would only answer with an error that says nothing useful.
-fn resolve_dir(options: Option<&OpenWriteOptions>) -> DuckResult<String> {
+fn resolve_dir(options: Option<&OpWriteOptions>) -> DuckResult<String> {
     let dir = match option_field(options, |opts| opts.dir.as_ref()) {
         Some(dir) if dir.trim().is_empty() => {
-            return Err(duck_error("open_write_options.dir must not be empty"));
+            return Err(duck_error("op_write_options.dir must not be empty"));
         }
         Some(dir) => dir.to_string(),
         None => std::env::temp_dir().to_string_lossy().into_owned(),
@@ -199,7 +199,7 @@ fn sanitize_name(raw: &str, extension: &str) -> DuckResult<String> {
     let cleaned = sanitize(raw);
 
     if cleaned.trim_matches(['_', '.', ' ']).is_empty() {
-        return Err(duck_error(format!("open_write_options.name is not a usable file name: '{raw}'")));
+        return Err(duck_error(format!("op_write_options.name is not a usable file name: '{raw}'")));
     }
 
     let mut name = cleaned;
@@ -315,7 +315,7 @@ fn join(dir: &str, file_name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{MAX_PART_CHARS, join, normalize_extension, sanitize_name, sanitize_part, write};
-    use crate::extension::types::open_write_options::OpenWriteOptions;
+    use crate::extension::types::op_write_options::OpWriteOptions;
 
     /// 一次测试自己的临时目录：`TempDir` 在测试结束时 drop，整棵目录跟着删掉，所以每个测试都要把它
     /// 握住（`into_path` 会放弃这个保证）。
@@ -328,8 +328,8 @@ mod tests {
         (dir, path)
     }
 
-    fn options(dir: Option<&str>, name: Option<&str>, part: Option<&str>) -> OpenWriteOptions {
-        OpenWriteOptions {
+    fn options(dir: Option<&str>, name: Option<&str>, part: Option<&str>) -> OpWriteOptions {
+        OpWriteOptions {
             dir: dir.map(str::to_owned),
             name: name.map(str::to_owned),
             part: part.map(str::to_owned),
@@ -463,7 +463,7 @@ mod tests {
         for raw in ["/", "..", "  "] {
             let err = sanitize_name(raw, ".html").unwrap_err();
             assert!(
-                err.to_string().contains("open_write_options.name"),
+                err.to_string().contains("op_write_options.name"),
                 "unexpected message for '{raw}': {err}"
             );
         }

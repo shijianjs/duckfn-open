@@ -14,18 +14,18 @@ src/bin/duckfn.rs      duckfn CLI entry   ->  #[path] mod extension; + duckfn::c
 
 src/extension/functions/
     mod.rs                  one `mod …;` per file below, alphabetical (grouped by family here)
-    scalar_open_path.rs     open_path / open_path_detached, two signatures each
-    scalar_open_commands.rs open_commands        (VARCHAR -> VARCHAR[], starts no process)
-    scalar_open_write.rs    open_write           four signatures, writes only
-    scalar_open_content.rs  open_content         four signatures, write and then open
-    scalar_open_html.rs     open_html            the zero-configuration HTML shortcut
-    scalar_open_print.rs    open_print           two signatures, straight to stdout
-    scalar_open_filename.rs open_filename / open_filename_check, five signatures, pure strings
+    scalar_op_open_path.rs     op_open_path / op_open_path_detached, two signatures each
+    scalar_op_open_commands.rs op_open_commands        (VARCHAR -> VARCHAR[], starts no process)
+    scalar_op_write.rs    op_write           four signatures, writes only
+    scalar_op_open_content.rs  op_open_content         four signatures, write and then open
+    scalar_op_open_html.rs     op_open_html            the zero-configuration HTML shortcut
+    scalar_op_print.rs    op_print           two signatures, straight to stdout
+    scalar_op_filename.rs op_filename / op_filename_check, five signatures, pure strings
 src/extension/launcher.rs   the platform layer over the `open` crate (the only file that calls it)
 src/extension/writer.rs     content -> file -> path: extension, directory, naming, legality
 src/extension/types/
     mod.rs                  the SQL-facing types layer
-    open_write_options.rs   the registered STRUCT type `open_write_options`
+    op_write_options.rs   the registered STRUCT type `op_write_options`
 
 test/sql/                   duckfn_open.test (smoke) + one .test per function file
 scripts/rename.sh           rename the extension after cloning
@@ -75,7 +75,7 @@ change to it would cost*:
 So a signature that grows an argument, a platform that grows a launcher, and a naming rule that grows an
 exception each land in exactly one file.
 
-One file is the exception to the `functions/` row: `scalar_open_filename.rs` has no process to start and no
+One file is the exception to the `functions/` row: `scalar_op_filename.rs` has no process to start and no
 file to write, so the SQL boundary there *is* the whole function — it calls
 [`sanitize-filename`](https://crates.io/crates/sanitize-filename) itself, wiring the crate's two entry points
 (rewrite, and test) straight to SQL. That makes it a *sibling* of the two layers below, not a client of either
@@ -88,17 +88,17 @@ touches the [`open`](https://crates.io/crates/open) crate. Its whole surface is 
 groups:
 
 1. four actions that squash `io::Result<()>` into a `bool` (default/chosen program × waiting/non-blocking),
-   which is what the `open_path` family returns;
+   which is what the `op_open_path` family returns;
 2. `open_default_checked`, the same non-blocking launch re-shaped as an error — see below;
 3. `preview_commands`, which renders the `Vec<Command>` open would run as a list of strings, plus
    `check_not_empty`, the argument check the SQL boundary makes.
 
-`open_default_checked` exists because `open_content` and `open_html` already spend their return value on
+`open_default_checked` exists because `op_open_content` and `op_open_html` already spend their return value on
 the path they wrote: a launch failure there has nowhere to go but an error, and that error carries the
 path (the file *is* on disk; this machine just has no desktop to show it). Splitting it out of the bool
 group is what keeps one rule — "the launcher's verdict becomes the return value, or an error, never both".
 
-`check_not_empty` is what the five launch-path signatures (`open_path` × 4 and `open_commands`) make at the
+`check_not_empty` is what the five launch-path signatures (`op_open_path` × 4 and `op_open_commands`) make at the
 SQL boundary, and it is one function instead of five copies so the message always reads the same way.
 A path is never validated further than "not empty": deciding whether a string is a usable path or URL is
 open's business, and this layer does not second-guess it.
@@ -117,8 +117,8 @@ The launcher understands paths, not content, while what a query holds is usually
 or SVG, a CSV, the PNG bytes of a BLOB. `writer.rs` is that missing step — content → file → path — and it
 has exactly one entry point, `write(bytes, extension, options)`.
 
-Why it is a layer of its own rather than a helper inside one function file: `open_write`, `open_content`
-and `open_html` all go through that single `writer::write`, so the rules below exist once and apply to all
+Why it is a layer of its own rather than a helper inside one function file: `op_write`, `op_open_content`
+and `op_open_html` all go through that single `writer::write`, so the rules below exist once and apply to all
 three. A fourth name that writes files gets them for free.
 
 What lives there:
@@ -143,7 +143,7 @@ platform layer: desktop only.
 
 ## The pure-string family
 
-`scalar_open_filename.rs` holds `open_filename` (three signatures) and `open_filename_check` (two). It sits
+`scalar_op_filename.rs` holds `op_filename` (three signatures) and `op_filename_check` (two). It sits
 under `functions/` and calls *neither* layer: no process is started, no file is written, a `VARCHAR` goes in
 and a `VARCHAR` or a `BOOLEAN` comes out. What it is instead — and what makes it a sibling of the two layers
 rather than a client of either — is the [`sanitize-filename`](https://crates.io/crates/sanitize-filename)
@@ -152,40 +152,40 @@ crate's own surface wired straight to SQL.
 The crate maintains *whether a string can be a file name*: the illegal characters `/ \ ? < > : * | "`, the
 control characters, the all-dot names (`.` and `..`), the Windows reserved device names (`CON`, `PRN`, `AUX`,
 `NUL`, `COM0-9`, `LPT0-9`, with or without a suffix), trailing dots and spaces, and the 255-**byte** cut.
-`open_filename`'s three trailing arguments are the crate's own `Options` fields and its defaults are the
+`op_filename`'s three trailing arguments are the crate's own `Options` fields and its defaults are the
 crate's too, so illegal characters are **deleted** (`replacement` is the empty string — pass a substitution to
 see where the edits were) and the cut is applied.
 
 **One default does not follow the crate: `windows` is pinned to `true`.** Its default there is the *compiling
 platform*, which would make one SQL statement answer differently on two machines; `true` is the strictest set
 and the same on all three platforms. Pass `false` for that switch when you want the Unix rules — under them
-`open_filename('CON.txt', '_', true, false)` keeps the name, and `open_filename_check('CON.txt')` still
+`op_filename('CON.txt', '_', true, false)` keeps the name, and `op_filename_check('CON.txt')` still
 answers `false`, because that call is asking about Windows.
 
-These are **not helpers of `open_write`**, although the write family uses the same crate internally — with a
-different policy: `open_write`'s `name` substitutes `_` and never truncates, while `open_filename` deletes and
+These are **not helpers of `op_write`**, although the write family uses the same crate internally — with a
+different policy: `op_write`'s `name` substitutes `_` and never truncates, while `op_filename` deletes and
 does. Two sets of defaults, documented separately, so neither is a stand-in for the other. That choice is what
-the shape of the API records: `open_filename` has **no three-argument form**, because `truncate` and `windows`
+the shape of the API records: `op_filename` has **no three-argument form**, because `truncate` and `windows`
 can only be passed together — the one compression in this API (two BOOLEANs in optional positions would be
-five combinations, of which only the crate's two defaults deserve a shorter form); `open_filename_check` takes
+five combinations, of which only the crate's two defaults deserve a shorter form); `op_filename_check` takes
 no `replacement`, because a question that rewrites nothing has nothing to substitute. It answers `true` exactly
-when `open_filename` under the same options would return the value unchanged, which is what makes
-`WHERE NOT open_filename_check(name)` an audit rather than a silent rewrite. A `NULL` in any argument makes
+when `op_filename` under the same options would return the value unchanged, which is what makes
+`WHERE NOT op_filename_check(name)` an audit rather than a silent rewrite. A `NULL` in any argument makes
 that row `NULL`.
 
-Also deliberate: the auto-naming `part` rule inside `open_write` (spaces to `_`, capped at 48 characters) is
+Also deliberate: the auto-naming `part` rule inside `op_write` (spaces to `_`, capped at 48 characters) is
 **not** exposed as a SQL name. That is this extension's own convention, not the crate's, and giving it a name
 of its own would imply a rule callers can lean on outside the write path.
 
 ## SQL-facing types: `types/`
 
 `extension/types/` holds the types that appear in SQL rather than in a Rust call. There is one today,
-`open_write_options`, the STRUCT that carries the three optional settings of `open_write` / `open_content`
+`op_write_options`, the STRUCT that carries the three optional settings of `op_write` / `op_open_content`
 (`dir`, `name`, `part`):
 
 ```rust
 #[derive(Clone, Debug, Default, DuckStruct)]
-#[duck(sql_name = "open_write_options", create_type = "replace")]
+#[duck(sql_name = "op_write_options", create_type = "replace")]
 pub(crate) struct OpenWriteOptions {
     pub dir: Option<String>,
     pub name: Option<String>,
@@ -198,16 +198,16 @@ functions](./writing-functions.md)):
 
 - a STRUCT beats three optional positional arguments of the same type, and beats a JSON string too —
   a misspelled field fails at the binder instead of at run time;
-- it keeps those names from spreading: the options are one argument, so `open_write` has exactly two
+- it keeps those names from spreading: the options are one argument, so `op_write` has exactly two
   arities instead of four;
-- it deliberately holds **no** `app` field. Choosing the program is `open_path(path, app)`'s job, and
+- it deliberately holds **no** `app` field. Choosing the program is `op_open_path(path, app)`'s job, and
   handing that function the path is how this API composes.
 
 Other things belong in this layer as well: a named type registered with `#[duck_enum]`, the row type of a
 `list<struct<…>>` result, the options type a `DuckLazy` argument parses. Visibility goes one notch beyond
 the file that reads it — `pub(crate)` here, because the `functions` subtree reads it.
 
-And one thing deliberately does not: `open_filename` / `open_filename_check` register **no** type, which is
+And one thing deliberately does not: `op_filename` / `op_filename_check` register **no** type, which is
 why `duckdb_types()` shows nothing new for them. Their options are two BOOLEANs that only make sense as a
 pair — that is an argument list, not a shape worth a SQL type (see
 [the pure-string family](#the-pure-string-family)).
@@ -225,17 +225,19 @@ and the exported CSV comes out empty — silently.
 
 ## One function per file, the prefix as a namespace
 
-Files under `functions/` are named "kind + what it does": `scalar_open_path.rs` holds the two launcher
-names (four signatures, because each name takes a `(path)` and a `(path, app)` form), `scalar_open_write.rs`
-holds the four `open_write` signatures, `scalar_open_commands.rs` holds the read-only preview, and
-`scalar_open_filename.rs` holds the two pure-string names (five signatures) that reach neither layer. When a
+Files under `functions/` are named "kind + what it does": `scalar_op_open_path.rs` holds the two launcher
+names (four signatures, because each name takes a `(path)` and a `(path, app)` form), `scalar_op_write.rs`
+holds the four `op_write` signatures, `scalar_op_open_commands.rs` holds the read-only preview, and
+`scalar_op_filename.rs` holds the two pure-string names (five signatures) that reach neither layer. When a
 feature outgrows a single file, split it into a subdirectory the way the duckfn example does
 (`functions/<feature>/mod.rs` plus one file per concern).
 
-Every registered name carries the same short prefix (`open_` here); the reasoning is in `AGENTS.md`:
+Every registered name carries the same short prefix (`op_` here); the reasoning is in `AGENTS.md`:
 community extensions almost never put the package name into function names, and a short prefix is enough
 to search `duckdb_functions()` by. The prefix is a namespace, not an abbreviation of the extension name,
-so it does not change when the extension is renamed.
+so it does not change when the extension is renamed. Below it there is one more level: the names that can
+start a launcher say `op_open_` (`op_open_commands` included, since what it previews is those), and the
+rest never say "open" — `op_write`, `op_print`, `op_filename`.
 
 ## Dependencies
 
@@ -266,9 +268,9 @@ shape the build:
   and trailing dots and spaces. The rules are its job; what we state is the policy, and there are **two**
   policies here. `writer.rs` substitutes `_`, does not truncate (it cuts at 255 *bytes*; length stays our
   business, in characters) and pins `windows: true`, so one set of rules holds on all three platforms.
-  `scalar_open_filename.rs` hands the crate's own surface to SQL — its defaults, deleted instead of
+  `scalar_op_filename.rs` hands the crate's own surface to SQL — its defaults, deleted instead of
   substituted and the cut on — with `windows` pinned the same way, and it is explicitly *not* a helper of
-  `open_write` (see [the pure-string family](#the-pure-string-family)).
+  `op_write` (see [the pure-string family](#the-pure-string-family)).
 - **[tempfile](https://crates.io/crates/tempfile)** — the random suffix of a generated name, the retry when
   one collides, and the guarantee that the name was free at that moment; also the scratch directories in
   `writer.rs`'s own tests. The alternative — roll a random number and poll `Path::exists` — leaves a TOCTOU
@@ -314,7 +316,7 @@ crate behind one shape instead of spreading its types through the SQL files, and
 | Rule | Why |
 | --- | --- |
 | The extension name is lowercase with underscores, and identical in five places. | It is the entry-point symbol and the artifact file name; DuckDB looks the symbol up by the file name. `just rename` writes all five. |
-| Every registered SQL name carries one short prefix (`open_` here). | DuckDB has no namespaces, and community extensions almost never put the package name into function names. See the conventions in `AGENTS.md`. |
+| Every registered SQL name carries one short prefix (`op_` here). | DuckDB has no namespaces, and community extensions almost never put the package name into function names. See the conventions in `AGENTS.md`. |
 | Temporary files (scripts, data, logs) go to `target/`. | `target/` is git-ignored and never pollutes the tracked tree. |
 | Text files use LF. | The repository stores LF; the `.gitattributes` normalization relies on it. |
 

@@ -13,18 +13,18 @@ configured to open it with — and the step in front of it, because what a query
 (a rendered page, a chart, a CSV, the bytes of an image) and a launcher only reads paths:
 
 ```sql
-SELECT open_path('/var/tmp/report.html');           -- a path that already exists
-SELECT open_html('<h1>hello</h1>');                 -- content: a temporary .html, in the browser
-SELECT open_write(csv, 'csv');                      -- content: a file, its path back, nothing started
-SELECT open_print(chart);                           -- content: stdout, past the result set's layout
+SELECT op_open_path('/var/tmp/report.html');           -- a path that already exists
+SELECT op_open_html('<h1>hello</h1>');                 -- content: a temporary .html, in the browser
+SELECT op_write(csv, 'csv');                      -- content: a file, its path back, nothing started
+SELECT op_print(chart);                           -- content: stdout, past the result set's layout
 ```
 
 Both halves are aimed at exploring inside a DuckDB session, not at embedding a launcher in a production
 program; the content half is that persistence step written once, as a general "content → somewhere you
 can look at it" instead of a copy per extension.
 
-A third family stands outside both steps and gets nothing in front of anyone: `open_filename` and
-`open_filename_check` turn a string into something usable as a file name, or answer whether it already
+A third family stands outside both steps and gets nothing in front of anyone: `op_filename` and
+`op_filename_check` turn a string into something usable as a file name, or answer whether it already
 is. No process, no file, no path — those two names carry
 [sanitize-filename](https://crates.io/crates/sanitize-filename)'s own rules and defaults straight onto SQL.
 
@@ -44,27 +44,27 @@ Locally built extensions are unsigned, so DuckDB has to be started with `-unsign
 ```shell
 duckdb -unsigned -c "
 LOAD './build/debug/duckfn_open.duckdb_extension';
-SELECT open_commands('report.html');
+SELECT op_open_commands('report.html');
 -- the launchers this machine would try, in order, running none of them
 "
 ```
 
 Five names start no process and so answer anywhere, which makes them the ones to try first:
-`open_commands` replies with what *would* open this here, `open_write` only writes a file and hands back
-its path, `open_print` only writes to stdout, and the two `open_filename` names ask for neither a desktop
+`op_open_commands` replies with what *would* open this here, `op_write` only writes a file and hands back
+its path, `op_print` only writes to stdout, and the two `op_filename` names ask for neither a desktop
 nor a file — a string in, a usable name (or a yes/no) out.
 
-The `Justfile` wraps the same commands: `just build`, `just sql "SELECT open_commands('report.html')"`,
+The `Justfile` wraps the same commands: `just build`, `just sql "SELECT op_open_commands('report.html')"`,
 `just repl` (a REPL with the extension already loaded).
 
 ## Functions
 
 Nine SQL names and twenty-one signatures, every one of them a scalar function — no aggregate function and
 no table function — plus one STRUCT type the extension registers,
-`open_write_options(dir VARCHAR, "name" VARCHAR, part VARCHAR)`, which is where the optional arguments of
+`op_write_options(dir VARCHAR, "name" VARCHAR, part VARCHAR)`, which is where the optional arguments of
 the write family live. Seven of the names carry more than one signature under a single SQL name (merged
-with duckfn's `overloads_name`), so the calls read `open_write(html, 'html', opts)` and
-`open_path('a', 'firefox')`, never `open_write_with(…)` or `open_path_with(…)`. Implementation:
+with duckfn's `overloads_name`), so the calls read `op_write(html, 'html', opts)` and
+`op_open_path('a', 'firefox')`, never `op_write_with(…)` or `op_open_path_with(…)`. Implementation:
 `src/extension/functions/`, the persistence rules in `src/extension/writer.rs`, the platform differences
 in `src/extension/launcher.rs`.
 
@@ -72,23 +72,23 @@ The first group takes a path or URL that already exists and hands it to the desk
 
 | Function | Input → output | open call |
 | --- | --- | --- |
-| `open_path(path)` | `VARCHAR` → `BOOLEAN` | `open::that` |
-| `open_path(path, app)` | `VARCHAR, VARCHAR` → `BOOLEAN` | `open::with` |
-| `open_path_detached(path)` | `VARCHAR` → `BOOLEAN` | `open::that_detached` |
-| `open_path_detached(path, app)` | `VARCHAR, VARCHAR` → `BOOLEAN` | `open::with_detached` |
-| `open_commands(path)` | `VARCHAR` → `VARCHAR[]` | `open::commands` |
+| `op_open_path(path)` | `VARCHAR` → `BOOLEAN` | `open::that` |
+| `op_open_path(path, app)` | `VARCHAR, VARCHAR` → `BOOLEAN` | `open::with` |
+| `op_open_path_detached(path)` | `VARCHAR` → `BOOLEAN` | `open::that_detached` |
+| `op_open_path_detached(path, app)` | `VARCHAR, VARCHAR` → `BOOLEAN` | `open::with_detached` |
+| `op_open_commands(path)` | `VARCHAR` → `VARCHAR[]` | `open::commands` |
 
 The second group starts from content, which is the shape of most of what a query produces:
 
 | Function | Signatures | Output |
 | --- | --- | --- |
-| `open_write` | `(content, ext)`, `(content, ext, opts)` and the same two for `BLOB` | `VARCHAR` — the path it wrote; starts nothing |
-| `open_content` | the same four | `VARCHAR` — the path, and the default program already showing it |
-| `open_html` | `(content)` | `VARCHAR` — the zero-configuration case: a temporary `.html` in the default browser |
-| `open_print` | `(text)`, `(text, tail)` | `VARCHAR` — always NULL; the text went to stdout |
+| `op_write` | `(content, ext)`, `(content, ext, opts)` and the same two for `BLOB` | `VARCHAR` — the path it wrote; starts nothing |
+| `op_open_content` | the same four | `VARCHAR` — the path, and the default program already showing it |
+| `op_open_html` | `(content)` | `VARCHAR` — the zero-configuration case: a temporary `.html` in the default browser |
+| `op_print` | `(text)`, `(text, tail)` | `VARCHAR` — always NULL; the text went to stdout |
 
-`open_content` is `open_write` composed with `open_path` under one name because it is the most common
-thing to do while exploring, and `open_html` is `open_content(content, 'html')` with all three options
+`op_open_content` is `op_write` composed with `op_open_path` under one name because it is the most common
+thing to do while exploring, and `op_open_html` is `op_open_content(content, 'html')` with all three options
 left at their default because what SQL renders is HTML nine times out of ten.
 
 The third group is pure strings and belongs to neither of the two above: nothing in it starts a process or
@@ -96,12 +96,12 @@ touches a file.
 
 | Function | Signatures | Output |
 | --- | --- | --- |
-| `open_filename` | `(value)`, `(value, replacement)`, `(value, replacement, truncate, windows)` | `VARCHAR` — the same string rewritten into a usable file name |
-| `open_filename_check` | `(value)`, `(value, truncate, windows)` | `BOOLEAN` — whether that rewrite would change nothing |
+| `op_filename` | `(value)`, `(value, replacement)`, `(value, replacement, truncate, windows)` | `VARCHAR` — the same string rewritten into a usable file name |
+| `op_filename_check` | `(value)`, `(value, truncate, windows)` | `BOOLEAN` — whether that rewrite would change nothing |
 
 A query holds file names that come from the data itself — a customer name, a report title, the `path`
 column that was crawled in — and one of those has to *become* a name before a directory, a URL or the next
-extension can be composed onto it. `open_write` sanitizes its `dir`, `name` and `part` internally, but
+extension can be composed onto it. `op_write` sanitizes its `dir`, `name` and `part` internally, but
 these two names are **not helpers of that family**: they are the crate's own full capability put on SQL,
 with the crate's own rules and defaults, answering without ever being given a file to write.
 
@@ -112,33 +112,33 @@ These groups do not answer alike, and each one is its own contract.
 **The launch family** — three distinguishable outcomes, and that is the whole contract:
 
 - **`NULL`** — the row had no input. The arguments are non-`Option`, so duckfn's argument reader
-  short-circuits a NULL to SQL NULL and no launcher is ever asked (`SELECT open_path(NULL); -- NULL`);
+  short-circuits a NULL to SQL NULL and no launcher is ever asked (`SELECT op_open_path(NULL); -- NULL`);
 - **`true`** — a launcher was started. For the unsuffixed pair this is the launcher's own return, so on
   Linux it means the target program ran and finished; on Windows the `_detached` pair goes through one
   ShellExecuteW call and says only that the process started;
 - **`false`** — no launcher could be started (no `xdg-open` on this machine, the chosen program is
-  missing). open's real reason is an `io::Error` with nowhere to go in SQL, so use `open_commands` to
+  missing). open's real reason is an `io::Error` with nowhere to go in SQL, so use `op_open_commands` to
   see what would run at all.
 
 **The write family** returns a path, which moves where a failure can be written:
 
-- `open_write` starts nothing, so its three answers are about the file: a path, NULL for a row with no
+- `op_write` starts nothing, so its three answers are about the file: a path, NULL for a row with no
   input, an error for an argument it cannot make into a file name;
-- `open_content` and `open_html` add a launch to that. Their return value is already the path, so a
-  launcher that cannot start is not the `false` `open_path` would answer with but an **error carrying
+- `op_open_content` and `op_open_html` add a launch to that. Their return value is already the path, so a
+  launcher that cannot start is not the `false` `op_open_path` would answer with but an **error carrying
   that path** — the file is on disk, this machine just has nothing to show it with. They take the
   non-blocking route (`open::that_detached`): writing a chart and opening it should not hang until the
   viewer is closed;
-- `open_print` returns NULL always: the text is on the console and SQL has nothing left to say.
+- `op_print` returns NULL always: the text is on the console and SQL has nothing left to say.
 
 **The filename pair** answers with a string or a BOOLEAN and nothing else: NULL as soon as any argument is
 NULL — this family has no default to guess at — and no error for a bad value, because no value is bad
 here. A name with nothing salvageable in it still gets an answer, and that answer can be the empty string
-(`SELECT open_filename('CON.txt'); -- ''`). The only rejections are the binder's: wrong count, wrong type.
+(`SELECT op_filename('CON.txt'); -- ''`). The only rejections are the binder's: wrong count, wrong type.
 
 ### The rules the write family follows
 
-All four `open_write` and all four `open_content` signatures share one persistence layer, so one list
+All four `op_write` and all four `op_open_content` signatures share one persistence layer, so one list
 covers both names:
 
 - **the extension is the required setting** — it is what decides how the system treats the file. `html`
@@ -165,10 +165,10 @@ covers both names:
   `C:\Users\…\Temp/open-….json`.
 
 Choosing the program is deliberately not this family's job, and the options STRUCT has no `app` field for
-the same reason: `open_path(open_write(html, 'html'), 'firefox')` already says it, and it keeps the path
+the same reason: `op_open_path(op_write(html, 'html'), 'firefox')` already says it, and it keeps the path
 so you can check it before opening anything.
 
-`open_print` exists for the one thing a result set cannot do. The DuckDB CLI *lays out* its results —
+`op_print` exists for the one thing a result set cannot do. The DuckDB CLI *lays out* its results —
 column widths, borders, wrapping — and character art (the ASCII or braille charts a `textplot`-style
 extension returns as a VARCHAR) is read line by line, so putting it in one cell destroys it. The text goes
 to stdout exactly as it is, flushed on every call because Rust buffers stdout by line; `tail` replaces
@@ -177,52 +177,52 @@ the newline that is appended by default — `''` means "keep going on this line"
 
 ### The rules the filename pair follows
 
-The crate maintains six things and `open_filename` applies all of them: the illegal characters
+The crate maintains six things and `op_filename` applies all of them: the illegal characters
 `/ \ ? < > : * | "`, control characters, a name that is nothing but dots (`.` and `..`), the Windows
 reserved device names (`CON`, `PRN`, `AUX`, `NUL`, `COM0`–`COM9`, `LPT0`–`LPT9`), including the ones
 carrying a suffix, trailing dots and spaces, and the cut at **255 bytes**.
 
 ```sql
-SELECT open_filename('quarterly/report:v2.csv');                    -- 'quarterlyreportv2.csv'
-SELECT open_filename('  the report.  ');                            -- '  the report': trailing dot and spaces go, leading ones stay
-SELECT open_filename('CON.txt');                                    -- ''
-SELECT open_filename('..');                                         -- ''
-SELECT open_filename('a/b:c?.txt', '_');                            -- 'a_b_c_.txt'
-SELECT open_filename('sales|east', '-');                            -- 'sales-east'
-SELECT open_filename('CON.txt', '_', true, false);                  -- 'CON.txt': the Unix rules have no reserved device names
-SELECT length(open_filename(repeat('a', 300)));                     -- 255
-SELECT length(open_filename(repeat('a', 300), '_', false, true));   -- 300
+SELECT op_filename('quarterly/report:v2.csv');                    -- 'quarterlyreportv2.csv'
+SELECT op_filename('  the report.  ');                            -- '  the report': trailing dot and spaces go, leading ones stay
+SELECT op_filename('CON.txt');                                    -- ''
+SELECT op_filename('..');                                         -- ''
+SELECT op_filename('a/b:c?.txt', '_');                            -- 'a_b_c_.txt'
+SELECT op_filename('sales|east', '-');                            -- 'sales-east'
+SELECT op_filename('CON.txt', '_', true, false);                  -- 'CON.txt': the Unix rules have no reserved device names
+SELECT length(op_filename(repeat('a', 300)));                     -- 255
+SELECT length(op_filename(repeat('a', 300), '_', false, true));   -- 300
 ```
 
 The defaults follow the crate, with **one deliberate exception**:
 
 - `replacement` defaults to `''` — the illegal characters are **deleted**, not substituted. Pass one to see
-  where it edited: `'_'`, `'-'`, a whole string (`open_filename('a/b', '__')` → `'a__b'`), or `''` again;
+  where it edited: `'_'`, `'-'`, a whole string (`op_filename('a/b', '__')` → `'a__b'`), or `''` again;
 - `truncate` defaults to `true`, so the 255-byte cut is applied;
 - `windows` is **pinned to `true`** whatever the host is. In the crate its default is the compiling
   platform, which would let one SQL statement answer differently on three machines; here the strictest set
-  runs everywhere and the Unix rules are the explicit `open_filename(x, replacement, truncate, false)`.
+  runs everywhere and the Unix rules are the explicit `op_filename(x, replacement, truncate, false)`.
 
 The two BOOLEANs only come together, as the four-argument call — there is **no three-argument form**. That
 is the one compression in this API, not an oversight: two flags in optional positions would be five
 combinations, of which only the crate's two defaults deserve a shorter spelling. The same shape holds on
 the check side, where the two flags are arguments 2 and 3.
 
-`open_filename_check` is the predicate half of the same crate and rewrites nothing: `true` means
-`open_filename` under the same options would hand back the value it was given. That is what an audit or a
+`op_filename_check` is the predicate half of the same crate and rewrites nothing: `true` means
+`op_filename` under the same options would hand back the value it was given. That is what an audit or a
 filter wants — see how much would move before deciding to move it:
 
 ```sql
-SELECT open_filename_check('report.csv');    -- true
-SELECT open_filename_check('a/b.txt');       -- false
-SELECT open_filename_check('CON.txt');       -- false
-SELECT open_filename_check('trail. ');       -- false
-SELECT count(*) FROM files WHERE NOT open_filename_check(name);
+SELECT op_filename_check('report.csv');    -- true
+SELECT op_filename_check('a/b.txt');       -- false
+SELECT op_filename_check('CON.txt');       -- false
+SELECT op_filename_check('trail. ');       -- false
+SELECT count(*) FROM files WHERE NOT op_filename_check(name);
 ```
 
 It takes no `replacement`: a question that rewrites nothing has nothing to substitute.
 
-The naming rule that runs *inside* `open_write` — spaces in `part` collapsed to `_`, 48 characters at most
+The naming rule that runs *inside* `op_write` — spaces in `part` collapsed to `_`, 48 characters at most
 — is a different policy and deliberately has no SQL name of its own. Don't read one family's defaults as
 the other's.
 
@@ -230,7 +230,7 @@ the other's.
 
 - a struct literal that omits a field is **not** implicitly widened to the three-field STRUCT, so write
   either every field or the cast:
-  `SELECT open_write(svg, 'svg', {'dir':'./out'}::open_write_options);`
+  `SELECT op_write(svg, 'svg', {'dir':'./out'}::op_write_options);`
 - a whole STRUCT passed as NULL is a NULL argument, so it short-circuits to NULL exactly like a NULL
   content does — nothing is written. It does not mean "the rest at their defaults"; **omit the third
   argument** for those.
@@ -241,31 +241,31 @@ Two things apply to every name:
 
 - whether to wait is the visible difference inside the launch pair: `open::that` returns when the
   launcher comes back, and on Linux `xdg-open` typically only returns once the target program exits.
-  On Windows, with the `shellexecute-on-windows` feature of `open` turned on, `open_path_detached` is
+  On Windows, with the `shellexecute-on-windows` feature of `open` turned on, `op_open_path_detached` is
   the more direct route (one native API call instead of a PowerShell helper plus an `explorer.exe`
   fallback);
 - DuckDB may fold a call whose arguments are all constants into a single execution, so
-  `SELECT open_path('report.html')` opens one window and `SELECT open_print('x')` prints one line, while
-  `SELECT open_path(p) FROM reports` opens one per row — there is no deduplication. Put a column
-  reference in the argument (`open_print('x: ' || a)`) when you do want one call per row; for
-  `open_write` one file per row is exactly what the generated name is for.
+  `SELECT op_open_path('report.html')` opens one window and `SELECT op_print('x')` prints one line, while
+  `SELECT op_open_path(p) FROM reports` opens one per row — there is no deduplication. Put a column
+  reference in the argument (`op_print('x: ' || a)`) when you do want one call per row; for
+  `op_write` one file per row is exactly what the generated name is for.
 
 An empty path, an empty program name, an empty extension and an unusable option are errors rather than a
 `false` or a silent default — a typo and an unopenable file deserve different answers. DuckDB reports an
 invalid input error with the function's own name in front of the message:
 
 ```sql
-SELECT open_path('');    -- open_path: the path or URL must not be empty
-SELECT open_write('a', '');
--- open_write: the extension must not be empty (pass e.g. 'html', not '')
-SELECT open_write('a', 'txt', {'dir':'   ', 'name':NULL, 'part':NULL});
--- open_write: open_write_options.dir must not be empty
+SELECT op_open_path('');    -- op_open_path: the path or URL must not be empty
+SELECT op_write('a', '');
+-- op_write: the extension must not be empty (pass e.g. 'html', not '')
+SELECT op_write('a', 'txt', {'dir':'   ', 'name':NULL, 'part':NULL});
+-- op_write: op_write_options.dir must not be empty
 ```
 
 The launcher is desktop software, which is why this extension builds for desktop platforms only (see
-[Platforms](#platforms)). On a machine with no desktop the four `open_path` actions answer `false`,
-`open_content` and `open_html` raise an error carrying the path they did write, and `open_commands` still
-answers — listing what would be tried there. `open_write`, `open_print` and the two `open_filename` names
+[Platforms](#platforms)). On a machine with no desktop the four `op_open_path` actions answer `false`,
+`op_open_content` and `op_open_html` raise an error carrying the path they did write, and `op_open_commands` still
+answers — listing what would be tried there. `op_write`, `op_print` and the two `op_filename` names
 need no desktop at all. See `src/extension/launcher.rs`.
 
 ## Build from source
@@ -295,14 +295,14 @@ just ci-build      # just the official build, without running the tests
 Whether a launch succeeds depends on this machine's desktop configuration, and a CI runner has no
 desktop, so a test never calls anything that launches. What runs instead is everything that does not
 need one: the signature shapes as registered in `duckdb_functions()`, the NULL short-circuit, the
-argument validation (including the checks that fail before a file is written), `open_commands` — the
-launch action that starts no process — and the persistence layer for real: `open_write`'s files are
+argument validation (including the checks that fail before a file is written), `op_open_commands` — the
+launch action that starts no process — and the persistence layer for real: `op_write`'s files are
 written and read back with `read_text` / `read_blob` (naming, directory creation, byte-exact BLOB
-round-trips, sanitizing, overwriting), and `open_print` is actually called and asserted to answer NULL.
-`open_content` and `open_html` run through the same `writer::write`, so their tests stay on the catalog
-side and on the calls that error before the launch step. The `open_filename` pair needs neither a desktop
+round-trips, sanitizing, overwriting), and `op_print` is actually called and asserted to answer NULL.
+`op_open_content` and `op_open_html` run through the same `writer::write`, so their tests stay on the catalog
+side and on the calls that error before the launch step. The `op_filename` pair needs neither a desktop
 nor a disk, so its file asserts every rewrite verbatim: each of the crate's rules, the arity this API
-deliberately does not offer (`open_filename(x, '_', true)` is a binder error), and that the predicate and
+deliberately does not offer (`op_filename(x, '_', true)` is a binder error), and that the predicate and
 the rewrite still agree under the same options.
 
 Those tests write into `test/sql/` (the runner's `__TEST_DIR__`), so `.gitignore` keeps only `*.test`
@@ -315,9 +315,9 @@ against `build/debug/*.duckdb_extension`) and what each test file covers.
 Windows, Linux and macOS only. A launcher is desktop software, so this extension builds no WebAssembly
 target: CI excludes the three wasm architectures (`exclude_archs` in
 `.github/workflows/MainDistributionPipeline.yml`), and `just build_wasm` / `build_wasm_eh` / `test_wasm`
-are overridden to say so instead of building. On a machine with no desktop the four `open_path` actions
-answer `false` and `open_content` / `open_html` raise an error carrying the path they wrote, while
-`open_commands`, `open_write`, `open_print` and the `open_filename` pair work as usual.
+are overridden to say so instead of building. On a machine with no desktop the four `op_open_path` actions
+answer `false` and `op_open_content` / `op_open_html` raise an error carrying the path they wrote, while
+`op_open_commands`, `op_write`, `op_print` and the `op_filename` pair work as usual.
 
 ## Documentation site
 

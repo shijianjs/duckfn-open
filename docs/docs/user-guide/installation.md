@@ -75,12 +75,12 @@ WHERE extension_name = 'duckfn_open';
 ```sql
 SELECT function_name, len(parameters), return_type
 FROM duckdb_functions()
-WHERE function_name LIKE 'open%';
+WHERE function_name LIKE 'op%';
 ```
 
-Twenty-one rows for the nine names this extension registers (`open_write` and `open_content` carry four
-signatures each — text and binary, with and without options; `open_path`, `open_path_detached`,
-`open_print` and `open_filename_check` carry two each; `open_filename` carries three; `open_commands` and
-`open_html` one). The options STRUCT the write signatures take is a registered type rather than a
+Twenty-one rows for the nine names this extension registers (`op_write` and `op_open_content` carry four
+signatures each — text and binary, with and without options; `op_open_path`, `op_open_path_detached`,
+`op_print` and `op_filename_check` carry two each; `op_filename` carries three; `op_open_commands` and
+`op_open_html` one). The options STRUCT the write signatures take is a registered type rather than a
 function, so it shows up in `duckdb_types()`, not here. If the list is empty, the extension is not loaded
 in the session you are querying.

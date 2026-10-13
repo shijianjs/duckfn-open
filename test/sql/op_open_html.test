@@ -1,10 +1,10 @@
-# name: test/sql/open_html.test
-# description: open_html：零配置快捷方式的注册形状、binder 拦截、NULL 短路
+# name: test/sql/op_open_html.test
+# description: op_open_html：零配置快捷方式的注册形状、binder 拦截、NULL 短路
 # group: [duckfn_open]
 
-# 与 open_content.test 同一条理由：**任何真调用都会把默认浏览器叫起来**，那取决于这台机器的桌面配置，
+# 与 op_open_content.test 同一条理由：**任何真调用都会把默认浏览器叫起来**，那取决于这台机器的桌面配置，
 # CI 的 runner 也没有桌面。所以这里只认 catalog 与那些到不了落盘的调用。
-# 它写出的路径长什么样、临时目录怎么缺省，是 writer::write 的事（open_write.test 已经盯住了），
+# 它写出的路径长什么样、临时目录怎么缺省，是 writer::write 的事（op_write.test 已经盯住了），
 # 这个函数只是把后缀钉成 `html`、把三个可选项全部留空。
 
 require duckfn_open
@@ -16,16 +16,16 @@ require duckfn_open
 query TII
 SELECT function_name, len(parameters), return_type
 FROM duckdb_functions()
-WHERE function_name = 'open_html'
+WHERE function_name = 'op_open_html'
 ORDER BY len(parameters);
 ----
-open_html	1	VARCHAR
+op_open_html	1	VARCHAR
 
-# 只有文本那一路：输入是 HTML **文本**，二进制要先 CAST 或者走 open_content(blob, 'html')
+# 只有文本那一路：输入是 HTML **文本**，二进制要先 CAST 或者走 op_open_content(blob, 'html')
 query T
 SELECT count(*) = 0
 FROM duckdb_functions()
-WHERE function_name = 'open_html' AND list_contains(parameter_types, 'BLOB');
+WHERE function_name = 'op_open_html' AND list_contains(parameter_types, 'BLOB');
 ----
 true
 
@@ -34,17 +34,17 @@ true
 # ============================================================================
 
 statement error
-SELECT open_html('<h1>hi</h1>', 'firefox');
+SELECT op_open_html('<h1>hi</h1>', 'firefox');
 ----
 Binder Error
 
 statement error
-SELECT open_html();
+SELECT op_open_html();
 ----
 Binder Error
 
 statement error
-SELECT open_html(42);
+SELECT op_open_html(42);
 ----
 Binder Error
 
@@ -53,12 +53,12 @@ Binder Error
 # ============================================================================
 
 query T
-SELECT open_html(NULL);
+SELECT op_open_html(NULL);
 ----
 NULL
 
 query I
-SELECT count(*) FROM (VALUES (NULL), (NULL), (NULL)) t(c) WHERE open_html(c) IS NOT NULL;
+SELECT count(*) FROM (VALUES (NULL), (NULL), (NULL)) t(c) WHERE op_open_html(c) IS NOT NULL;
 ----
 0
 

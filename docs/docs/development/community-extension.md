@@ -34,17 +34,17 @@ to the function it describes:
 
 ```rust
 #[duck_scalar_function(
-    description = "Lists, without running them, the launcher commands open_path would try in order",
-    comment = "The read-only pair of open_path: nothing is started, so the result is stable enough to \
+    description = "Lists, without running them, the launcher commands op_open_path would try in order",
+    comment = "The read-only pair of op_open_path: nothing is started, so the result is stable enough to \
                assert in CI on a headless runner",
-    example = "SELECT open_commands('report.html')"
+    example = "SELECT op_open_commands('report.html')"
 )]
 ```
 
-`open_path` uses `examples = [ … ]` instead of the single `example`, for the two calls worth showing
+`op_open_path` uses `examples = [ … ]` instead of the single `example`, for the two calls worth showing
 (`(path)` and `(path, app)`); the export joins them with `"; "`. And the CSV carries one row per **SQL
 name** — nine rows for the twenty-one signatures this extension registers — not one per signature: the
-signatures merged in with `overloads_name` are folded into that function set on export, so `open_write`,
+signatures merged in with `overloads_name` are folded into that function set on export, so `op_write`,
 which has four, is still one row.
 
 That merge is why the text goes on **one** signature per name and nowhere else. `description` and `comment`
@@ -97,7 +97,7 @@ that need a decision:
 | `extension.maintainers` | Your GitHub handle. |
 | `repo.github` | `owner/repository`. |
 | `repo.ref` | The **commit SHA** (40 characters) of the released version — `git rev-list -n 1 v0.1.0` — not `main` and not the tag name. A registration points at immutable code, and a build from a branch would claim a development version. |
-| `docs.hello_world` | A runnable example, rendered into a code block. Do not write `INSTALL` / `LOAD` here: the page adds those itself. The draft in `community-extension/description.yml` gives one call per half of the API — `open_commands` and `open_write`, neither of which starts a process — then `open_path`, and `open_path(NULL)` as the row that has no input at all. |
+| `docs.hello_world` | A runnable example, rendered into a code block. Do not write `INSTALL` / `LOAD` here: the page adds those itself. The draft in `community-extension/description.yml` gives one call per half of the API — `op_open_commands` and `op_write`, neither of which starts a process — then `op_open_path`, and `op_open_path(NULL)` as the row that has no input at all. |
 | `docs.extended_description` | The prose around the function table. |
 
 `community-extension/AGENTS.md` explains each field's provenance and the submission steps in more

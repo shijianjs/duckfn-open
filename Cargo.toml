@@ -1,5 +1,5 @@
 [package]
-name = "my_extension"
+name = "duckfn_open"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.86"
@@ -16,20 +16,6 @@ crate-type = ["cdylib"]
 [profile.release]
 lto = true
 strip = true
-
-[[example]]
-# 目前无法按 target 覆盖 crate-type：src/wasm_lib.rs 转发到 src/lib.rs，
-# 这样原生编译保持 cdylib，Wasm 编译则用 staticlib（真正的链接由 emcc 完成）。
-# name 必须与扩展名一致（Justfile 的 build_wasm 拿它当 --example 的参数）。
-#
-# crate-type can't be (at the moment) be overriden for specific targets:
-# src/wasm_lib.rs forwards to src/lib.rs so that we can change from cdylib
-# (that is needed while compiling natively) to staticlib (needed since the
-# actual linking will be done via emcc).
-# The name must match the extension name (the Justfile's build_wasm passes it to `--example`).
-name = "my_extension"
-path = "src/wasm_lib.rs"
-crate-type = ["staticlib"]
 
 [dependencies]
 # duckfn：属性宏框架，把普通 Rust 函数变成 DuckDB 的标量 / 聚合 / 表函数等（见 src/extension/functions/）。
@@ -118,3 +104,34 @@ libduckdb-sys = { version = ">=1.10500, <2", features = ["loadable-extension"] }
 # For example:
 #   duckfn = { version = "0.1.0", features = ["cli", "chrono"] }
 #   chrono = { version = "0.4", default-features = false, features = ["std"] }
+
+# 这个扩展的全部能力都来自下面这一个 crate：它把「用桌面配置好的程序打开一个路径或 URL」这件事
+# 做完了，本仓库只负责把它接到 SQL 上（见 src/extension/launcher.rs 与 functions/）。
+#
+# 这个扩展只构建桌面平台：启动器是桌面软件，所以没有 wasm 目标，open 也就是普通依赖而不是
+# `[target.'cfg(…)'.dependencies]` 里的一项。
+#
+# Everything this extension wraps is the single crate below: it already knows how to open a path or URL
+# with whatever the desktop is configured to use, and this repository only wires it up to SQL (see
+# src/extension/launcher.rs and functions/).
+#
+# This extension builds for desktop targets only — a launcher is desktop software, so there is no wasm
+# target and open is an ordinary dependency rather than a `[target.'cfg(…)'.dependencies]` entry.
+# open：各平台入口（Windows 的 PowerShell 辅助进程与 explorer.exe 后备、macOS 的 /usr/bin/open、
+# 类 Unix 的 xdg-open 及其后备序列、WSL 的 winebrowser）、参数引用、以及「启动器起不来」的错误，
+# 都是它的事 —— 自己拼命令行既漏掉这些平台差异，又会踩引号的坑。
+#
+# `shellexecute-on-windows` 让 `_detached` 那组走 ShellExecuteW（一次原生 API 调用），而不是默认的
+# 「spawn 出启动器进程再把它脱离」。`insecure` 那个 feature（Windows 上退回老的 `cmd /c start`）
+# 恰恰是不该开的：它把路径当命令行片段拼，正是要躲开的注入面。
+#
+# open: it owns the per-platform entry points (the PowerShell helper with explorer.exe as fallback on
+# Windows, /usr/bin/open on macOS, xdg-open and its fallback sequence on Unix, winebrowser under WSL),
+# the argument quoting, and the error for "no launcher could be started". Building the command lines by
+# hand would miss both the platform differences and the quoting pitfalls.
+#
+# `shellexecute-on-windows` makes the `_detached` group go through ShellExecuteW (one native API call)
+# instead of the default "spawn the launcher, then detach it". The `insecure` feature (which restores
+# the legacy `cmd /c start` on Windows) is exactly the one not to enable: it splices the path into a
+# command line, which is the injection surface to avoid.
+open = { version = "5.4", features = ["shellexecute-on-windows"] }

@@ -1,38 +1,56 @@
 extension:
-  name: my_extension
-  description: <one line about what this extension does, shown in the community extension list>
+  name: duckfn_open
+  description: Open a local path or URL with the program your desktop is configured to use, straight from SQL
   version: 0.1.0
   language: Rust
   build: cargo
   license: MIT
   requires_toolchains: "rust;python3"
   maintainers:
-    - <your-github-handle>
+    - shijianjs
 
 repo:
-  github: <owner>/<repo>
+  github: shijianjs/duckfn-open
   ref: <40-character commit SHA of the released version>
 
 docs:
   hello_world: |
-    -- The two sample functions: one scalar, one aggregate
-    SELECT my_greet('world');
-    -- Hello, world!
+    -- What would open this on the machine running the query, without opening anything
+    SELECT open_commands('report.html');
 
-    SELECT my_sum(x) FROM (VALUES (1.5::DOUBLE), (2.5::DOUBLE), (3.0::DOUBLE)) t(x);
-    -- 7.0
+    -- Hand it to the default program; true once a launcher has been started
+    SELECT open_path('./report.html');
+
+    -- NULL input starts nothing, so SQL can tell "no input" from "could not open"
+    SELECT open_path(NULL);
   extended_description: |
-    A two-line summary of the whole extension: what goes in, what comes out, and the one thing a user
-    has to know before the first call.
+    `duckfn_open` wraps the Rust `open` crate for SQL: it hands a path or a URL to whatever the current
+    desktop configuration opens that kind of thing with — the system default program, or one you name.
+    Nothing is read, copied, or interpreted by DuckDB; the value goes to the platform launcher
+    (ShellExecute on Windows, `/usr/bin/open` on macOS, `xdg-open` and its fallbacks on Unix).
 
-    | Function | Kind | Input -> output |
+    | Function | Input -> output | What it does |
     | --- | --- | --- |
-    | `my_greet(name)` | scalar | `VARCHAR` -> `VARCHAR` |
-    | `my_greet_checked(name)` | scalar | `VARCHAR` -> `VARCHAR`, NULL for an empty name |
-    | `my_sum(value)` | aggregate | `DOUBLE` -> `DOUBLE`, NULLs skipped |
+    | `open_path(path)` | `VARCHAR` -> `BOOLEAN` | default program, waits for the launcher |
+    | `open_path(path, app)` | `VARCHAR, VARCHAR` -> `BOOLEAN` | named program, waits for the launcher |
+    | `open_path_detached(path)` | `VARCHAR` -> `BOOLEAN` | default program, returns as soon as it started |
+    | `open_path_detached(path, app)` | `VARCHAR, VARCHAR` -> `BOOLEAN` | named program, same |
+    | `open_commands(path)` | `VARCHAR` -> `VARCHAR[]` | lists the launcher commands, runs none |
 
-    Then the details that do not fit a table: NULL semantics, the options a function takes, what it does
-    with the file system or the network, and which DuckDB version it needs. Requires **DuckDB 1.3 or
-    newer**: the extension is built against DuckDB 1.5.6 headers but declares the C API floor it needs
-    (v1.2.0), so one binary loads into 1.3.2 through 1.5.6 alike. Development notes and the full option
-    table live in the repository: <https://github.com/owner/repo>.
+    Three outcomes are distinguishable in SQL, and that is the whole contract: `NULL` means the row had
+    no input (a NULL argument never reaches a launcher), `true` means a launcher was started, `false`
+    means none could be started on this machine. Whether to wait is the visible difference between the
+    two pairs — on Linux `xdg-open` returns only once the target program exits, so
+    `open_path_detached` is what you want inside a query. An empty path or application is an error
+    rather than a `false`, since a typo and an unopenable file deserve different answers.
+
+    `open_commands` is the side-effect-free entry point: it lists, in the order the crate would try them,
+    the launchers this machine would use, so "nothing opened" can be diagnosed without a desktop. Its result
+    is the same on a headless CI runner as on a workstation, which is why it is also the example worth
+    copying into a test.
+
+    The extension touches no file system and no network of its own: it starts a process and nothing else,
+    so it is worth a thought before calling it over a column of untrusted paths. Requires **DuckDB 1.3
+    or newer**: it is built against DuckDB 1.5.6 headers but declares the C API floor it needs (v1.2.0),
+    so one binary loads into 1.3.2 through 1.5.6 alike. Source and the development notes:
+    <https://github.com/shijianjs/duckfn-open>.

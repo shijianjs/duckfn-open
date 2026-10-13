@@ -1,10 +1,10 @@
 {
   "title": {
-    "message": "my_extension",
+    "message": "duckfn_open",
     "description": "The title in the navbar"
   },
   "logo.alt": {
-    "message": "my_extension logo",
+    "message": "duckfn_open logo",
     "description": "The alt text of navbar logo"
   },
   "item.label.User guide": {

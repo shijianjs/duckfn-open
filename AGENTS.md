@@ -9,7 +9,11 @@ AGENTS.md（duckfn-extension-template 自带的那一份）：克隆模板后**�
 
 ## 项目事实（唯一需要人维护的一段）
 
-- 这个扩展做什么：{{PROJECT_GOAL}}
+- 这个扩展做什么：把 [open](https://crates.io/crates/open) 的「按桌面配置打开一个路径或 URL」接到 SQL 上 ——
+  `open_path(path[, app])` 与它的非阻塞版 `open_path_detached(path[, app])` 起启动器，
+  `open_commands(path)` 只列出会依次尝试的启动命令、不起任何进程。三个 SQL 名字、五个签名，全是标量函数，
+  没有聚合与表函数；平台差异集中在 `src/extension/launcher.rs`。**只构建桌面平台**：启动器是桌面软件，
+  这个扩展没有 wasm 目标（见下面「排除 wasm 构建」）。
 - 本仓库来自 [duckfn-extension-template](https://github.com/shijianjs/duckfn-extension-template)：
   克隆后第一件事是 `just rename <新扩展名>`（见下面「扩展名与改名」）。
 
@@ -127,40 +131,60 @@ sed -i 's/\r$//' path/to/new-file.md path/to/new-script.sh
 - 依赖不是免费的：引入 crate 时在 `Cargo.toml` 里写一句它负责什么、为什么选它，让取舍一眼看得出来；
   只服务某个平台的依赖挂到 target 专属依赖表下
   （见 duckfn_quantstats 的 `[target.'cfg(not(target_arch = "wasm32"))'.dependencies]`），别让别的目标
-  替它付编译成本 —— 有时这甚至是硬要求（`open` 没有 emscripten 的实现，编到 wasm 直接失败）。
+  替它付编译成本。**本项目不需要这层门控**：它只构建桌面平台（见下面「排除 wasm 构建」），所以 `open`
+  就是 `[dependencies]` 里普通的一项 —— 模板那份 target 表与 wasm 替身已经删掉，别把它们补回来。
 - 自查标准：一个「通用」函数如果在 crates.io 上能查到现成实现，它就需要一个留下来的理由。
 
 ### 扩展名与改名
 
 扩展名必须**全小写、只含下划线与数字**，并且处处一致 —— 它是入口点符号名，也是产物文件名，
-DuckDB 按文件名找符号，对不上 `LOAD` 就直接失败。五个地方：`Cargo.toml`（`[package] name` 与
-`[[example]] name`）、`Makefile` 的 `EXTENSION_NAME`、`src/extension/mod.rs` 的
+DuckDB 按文件名找符号，对不上 `LOAD` 就直接失败。五个地方：`Cargo.toml`（`[package] name`）、
+`Makefile` 的 `EXTENSION_NAME`、`src/extension/mod.rs` 的
 `duckfn_entrypoint!`、`Justfile` 的 `extension_name`、CI 工作流的 `extension_name`。
 
 **不要手改**：跑 `just rename <新扩展名>`（`scripts/rename.sh`），它一次改齐上面五处以及文档与
 README 里出现的路径示例，并把 `Cargo.lock` 按新包名重写；脚本末尾会打印还需要人工过一遍的清单。
 
+### 排除 wasm 构建（本项目只构建桌面平台）
+
+启动器是桌面软件，wasm 里没有启动器可以起，`open` 在 emscripten 上也根本编不过（它对没有实现的平台直接
+`compile_error!`）。所以这个项目**不做 wasm**，一次排除到位，下面这些地方是它的落点 —— 看到它们就知道
+是有意为之，不要以为漏配了：
+
+| 落点 | 现状 |
+| --- | --- |
+| `Cargo.toml` | 没有 wasm 的 `[[example]]`（模板里那份 staticlib 转发）；`open` 是普通 `[dependencies]` 项，没有 `[target.'cfg(not(…))'.dependencies]` 门控 |
+| `src/` | 只有一个 crate root `src/lib.rs`（模板里的 `src/wasm_lib.rs` 已删除），`launcher.rs` 里没有任何 `#[cfg(target_arch = "wasm32")]` 替身 |
+| `.github/workflows/MainDistributionPipeline.yml` | 传 `exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads'`，Release 只有原生平台资产 |
+| `Justfile` | 覆盖共享的 `build_wasm` / `build_wasm_eh` / `test_wasm`，跑它们只打印一句说明（共享副本 `scripts/common.just` 不动，见下面「共享 justfile」） |
+| `docs/` | 没有可运行 SQL 块：`docusaurus.config.ts` 去掉了 `remarkRunnableSql` 与 `dfkExtensions` 的 `preload`，`playwright.config.mts` / `docs/tests/` / `npm test` 一并删除，站上的 sql 围栏都是静态代码块 |
+
+要恢复 wasm 就得整串一起做（`[[example]]`、`launcher.rs` 的替身、CI 矩阵、文档站的可运行块与那份 wasm
+产物），不是一个开关。反过来说：**新增依赖时不用考虑 wasm 目标**，也不必往 target 专属依赖表里挂。
+
 ### 注册到 DuckDB 的函数名统一加短前缀
 
 凡是出现在 SQL 里的名字都加同一个前缀：标量函数、聚合函数、表函数、COPY 格式、cast、SQL 宏、
-replacement scan。模板里这个前缀是 `my_`。
+replacement scan。这个扩展的前缀是 `open_`（模板那份是 `my_`）。
 
 社区扩展几乎都不把包名/扩展名写进函数名（见
-<https://duckdb.org/community_extensions/list_of_extensions>）：`my_extension_greet` 这样的全名在每个
-调用点上都是纯噪声，而 `my_` 短到可以忽略，又足以在 `duckdb_functions()` 里按前缀检索。
+<https://duckdb.org/community_extensions/list_of_extensions>）：`duckfn_open_launcher` 这样的全名在每个
+调用点上都是纯噪声，而 `open_` 短到可以忽略，又足以在 `duckdb_functions()` 里按前缀检索。
 **前缀只是命名空间，不再是扩展名的缩写** —— 不要因为扩展名变了就跟着改。
 
-前缀之后的部分要能读懂，不要拿缩写堆砌。示例里的名字各只有一个签名：
+前缀之后的部分要能读懂，不要拿缩写堆砌。这个名字下的两个签名靠 `overloads_name` 并成一个函数集
+（Rust 函数名与 SQL 名字不同，见下面 `SQL_NAME` 那一段）：
 
 ```text
-my_greet(name)
-my_sum(value)
+open_path(path)              open_path(path, app)
+open_path_detached(path)     open_path_detached(path, app)
+open_commands(path)
 ```
 
 `rename` 脚本不动函数名（那是你的域代码）：换完扩展名顺手把示例函数与 `test/sql/*.test` 一起改成
 你的 API，前缀也在这里一并定下来。
 
-duckfn 的属性宏默认拿 **Rust 函数名**当注册名，所以直接把函数定义成 `fn my_xxx(...)` 即可。
+duckfn 的属性宏默认拿 **Rust 函数名**当注册名，所以直接把函数定义成 `fn open_xxx(...)` 即可。
 宏还会为每个签名生成 `SQL_NAME` 常量：同一个名字要在多处出现（错误信息前缀、日志）时读它，
 不要再抄一份字面量。代价是这类函数得写成 `pub(super)`，因为生成的模块沿用函数的可见性。
 `overloads_name` 能把「同一名字下按参数个数/类型分派」的多个签名并成一个函数集，需要时再用
@@ -171,11 +195,11 @@ duckfn 的属性宏默认拿 **Rust 函数名**当注册名，所以直接把函
 `docs/` 是一份 Docusaurus 站点（英文 + 简体中文），**不是必须的**：不用就整个目录删掉，仓库里只有两处
 引用它 —— `.github/workflows/DeployDocs.yml` 与 Justfile 的 `docs_*` recipe —— 一起删掉即可。
 
-维护约定（目录、命令、翻译流程、部署、版本占位符）见 [`docs/README.md`](docs/README.md)；改可运行
-SQL 块前先读 [`docs/AGENTS.md`](docs/AGENTS.md)（块里哪些路径不能写死、怎么读 `static/` 下的数据）。
+维护约定（目录、命令、翻译流程、部署、版本占位符）见 [`docs/README.md`](docs/README.md)；
+改页面结构与文案前先读 [`docs/AGENTS.md`](docs/AGENTS.md)（中英两份怎么对齐、`static/` 下的数据怎么引用）。
 可复用的部件
 来自 npm 上的 [`duckfn-docs-kit`](https://www.npmjs.com/package/duckfn-docs-kit)（首页 `<dfk-*>` 组件、
-目录折叠控件、版本占位符 remark 插件、可运行 SQL 块），站点里不再留副本，注册处见 `docusaurus.config.ts`。
+目录折叠控件、版本占位符 remark 插件），站点里不再留副本，注册处见 `docusaurus.config.ts`。
 三条容易踩的：
 
 - 正文里**不要手写版本号**：写 `{{EXTENSION_VERSION}}`（放在围栏代码块或行内代码里），构建期由 kit 的
@@ -183,13 +207,11 @@ SQL 块前先读 [`docs/AGENTS.md`](docs/AGENTS.md)（块里哪些路径不能�
   是文档站版本号的唯一来源。
 - 译文要在 `docs/i18n/zh-Hans/docusaurus-plugin-content-docs/current/` 下按**同样的相对路径**放一份全文，
   `id` / `slug` / `sidebar_position` 与英文页保持一致，页内链接用相对文件路径（写 `/docs/…` 会把中文页
-  送到英文页）。可运行块的 SQL 是代码，照抄，只翻注释。
-- **可运行 SQL 块**（info string 为 `{"type":"duckfn",…}` 的 `sql` 围栏）在浏览器里用 DuckDB-Wasm 真跑，
-  并调用本扩展。本地预加载的是 `static/duckdb-extensions/` 下**本机构建的那份**：`just test_wasm` 会先
-  `just build_wasm_eh` 构建、放进该目录，再跑一遍所有块；只有 GitHub Pages 部署才去拉 `REPO_URL` 指向
-  仓库的最新 Release（由 `DOCS_EXTENSION_FROM_RELEASE` 区分，见 `docs/docusaurus.config.ts`）。因此克隆后
-  要把 `REPO_URL` 改成自己的仓库（`just rename` 只改扩展名，不动这个 URL）。不需要这套能力时，把
-  `docusaurus.config.ts` 里的 `remarkRunnableSql` 与 `dfkExtensions` 两行去掉即可。
+  送到英文页）。代码块里的 SQL 是代码，照抄，只翻注释。
+- **本项目没有可运行 SQL 块**（见上面「排除 wasm 构建」）：`docusaurus.config.ts` 的 remarkPlugins 里
+  没有 `remarkRunnableSql`，站上的 ```` ```sql ```` 围栏都是静态代码块，示例要读者在本地 DuckDB 里 `LOAD`
+  之后跑。将来若真要恢复，需要本扩展的 wasm 产物与 `dfkExtensions({preload: […]})`，而 `REPO_URL` 也要
+  先改成自己的仓库（`just rename` 只改扩展名，不动这个 URL）。
 
 站点分成两个侧边栏、对应顶栏两项（见 `docs/sidebars.ts`），**目录名就是受众**：
 
@@ -213,7 +235,8 @@ SQL 块前先读 [`docs/AGENTS.md`](docs/AGENTS.md)（块里哪些路径不能�
 `release_*` …）
 都在 `scripts/common.just` 里；根 `Justfile` 只 `import "scripts/common.just"`，再留下机器相关的
 `set windows-shell`、项目相关的 `extension_name`，以及模板特有的 `rename`（由模板生成的项目还会
-加上自己的 recipe 与覆盖）。
+加上自己的 recipe 与覆盖 —— 本项目就把 `build_wasm` / `build_wasm_eh` / `test_wasm` 覆盖成一句提示，
+见上面「排除 wasm 构建」）。
 
 这份副本的**源在 duckfn 仓库**（`shijianjs/duckfn/scripts/common.just`）：各项目一份、逐字节相同。
 
@@ -337,7 +360,7 @@ just release_dev 0.1.1-dev.0
 ## 相关文档
 
 - [`docs/README.md`](docs/README.md)：文档站的布局、命令、翻译流程与部署。
-- [`docs/AGENTS.md`](docs/AGENTS.md)：改文档站（尤其可运行 SQL 块）时的约定与已知坑。
+- [`docs/AGENTS.md`](docs/AGENTS.md)：改文档站时的约定与已知坑（中英两份怎么对齐、静态代码块怎么写）。
 - 开发指南（`docs/docs/development/`，中英各一份）：目录结构、骨架取舍、写函数与测试、构建与发版 ——
   面向改这个仓库的人，替代了模板早期的 `DEVELOPMENT.md`。
 - [`README.zh.md`](README.zh.md)（[英文](README.md)）：SQL 接口与使用说明。

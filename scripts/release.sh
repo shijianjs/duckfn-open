@@ -103,7 +103,7 @@ prev_release_version() {
 # governed by Cargo.toml's semver requirements and are left alone). The package name equals the
 # extension name — a renamed project must change the `-p` argument too (scripts/rename.sh does).
 sync_lock() {
-    cargo update -p my_extension
+    cargo update -p duckfn_open
 }
 
 # 把版本号转成能放进正则的写法（只需转义点号）。

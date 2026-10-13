@@ -1,4 +1,4 @@
 function,description,comment,example
-my_greet,"Greets someone by name, the simplest possible scalar function",,SELECT my_greet('world')
-my_greet_checked,"Greets someone by name, returning NULL for an empty name and failing on whitespace","The nullable-and-fallible return shape: Ok(None) is SQL NULL, Err fails the query",SELECT my_greet_checked('')
-my_sum,"Sums a DOUBLE column, skipping NULLs, the simplest possible aggregate function","An empty group, or one where every row is NULL, yields NULL rather than 0","SELECT my_sum(x) FROM (VALUES (1.5), (2.5), (3.0)) t(x); SELECT my_sum(x) FROM (VALUES (1.0), (NULL)) t(x)"
+open_commands,"Lists, without running them, the launcher commands open_path would try in order","The read-only pair of open_path: nothing is started, so the result is stable enough to assert in CI on a headless runner",SELECT open_commands('report.html')
+open_path,Opens a local path or URL with the program the desktop is configured to use,"true once a launcher has been started, false when none could be started; NULL input short-circuits to NULL and starts nothing","SELECT open_path('report.html'); SELECT open_path('https://duckdb.org', 'firefox')"
+open_path_detached,Opens a local path or URL and returns as soon as the launcher is started,"The non-blocking pair of open_path: true means a process was started, not that the target opened",SELECT open_path_detached('https://duckdb.org')

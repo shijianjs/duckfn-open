@@ -10,8 +10,8 @@ description: 把扩展注册进 DuckDB 社区仓：需要哪两份文件、每�
 「从 GitHub Release 下载一个文件」变成：
 
 ```sql
-INSTALL my_extension FROM community;   -- 只需一次，需要网络
-LOAD my_extension;
+INSTALL duckfn_open FROM community;   -- 只需一次，需要网络
+LOAD duckfn_open;
 ```
 
 社区仓构建出的产物是签过名的、并与用户的 DuckDB 版本严格匹配，所以不再需要 `-unsigned`。注册本身是一个
@@ -19,8 +19,8 @@ LOAD my_extension;
 
 | 本仓库 | 社区仓里的位置 |
 | --- | --- |
-| `community-extension/description.yml` | `extensions/my_extension/description.yml` |
-| `community-extension/docs/function_descriptions.csv` | `extensions/my_extension/docs/function_descriptions.csv` |
+| `community-extension/description.yml` | `extensions/duckfn_open/description.yml` |
+| `community-extension/docs/function_descriptions.csv` | `extensions/duckfn_open/docs/function_descriptions.csv` |
 
 目录名必须与 `extension.name` 逐字一致 —— 社区仓的 `scripts/build.py` 会校验这一点。
 
@@ -32,11 +32,17 @@ LOAD my_extension;
 
 ```rust
 #[duck_scalar_function(
-    description = "Greets someone by name, the simplest possible scalar function",
-    comment = "…",
-    example = "SELECT my_greet('world')"
+    description = "Lists, without running them, the launcher commands open_path would try in order",
+    comment = "The read-only pair of open_path: nothing is started, so the result is stable enough to \
+               assert in CI on a headless runner",
+    example = "SELECT open_commands('report.html')"
 )]
 ```
+
+`open_path` 用的不是单个 `example` 而是 `examples = [ … ]`，因为它有两个值得展示的调用形式
+（`(path)` 与 `(path, app)`）；导出时它们用 `"; "` 拼在一起。CSV 里也是**一个 SQL 名字一行** ——
+`open_path`、`open_path_detached`、`open_commands` —— 而不是一个签名一行：靠 `overloads_name` 并进来的那
+两个签名自己不带文案，因此不会多出额外的行。
 
 改了这些属性就重新生成、覆盖过去：
 
@@ -80,7 +86,7 @@ flowchart LR
 | `extension.maintainers` | 你的 GitHub 账号。 |
 | `repo.github` | `owner/repository`。 |
 | `repo.ref` | 发布那一版的**提交 SHA**（40 位）—— `git rev-list -n 1 v0.1.0` —— 不要写 `main`，也不要写 tag 名。注册项指向的应当是不可变的代码，而从分支构建出的产物会自称开发版本。 |
-| `docs.hello_world` | 可直接复制跑的示例，会渲染进代码块。不要在这里写 `INSTALL` / `LOAD`：页面自己会加。 |
+| `docs.hello_world` | 可直接复制跑的示例，会渲染进代码块。不要在这里写 `INSTALL` / `LOAD`：页面自己会加。`community-extension/description.yml` 里那份草稿是从 `SELECT open_commands('report.html')` 开头的 —— 它是唯一一个不起任何进程的入口。 |
 | `docs.extended_description` | 函数表周围的正文。 |
 
 每个字段的来历与提交步骤，`community-extension/AGENTS.md` 里讲得更细。
@@ -89,21 +95,21 @@ flowchart LR
 
 ```shell
 # 1. 在 duckdb/community-extensions 的 fork 克隆里
-git checkout -b add-my-extension
+git checkout -b add-duckfn-open
 
 # 2. 把两份文件复制到位
-mkdir -p extensions/my_extension/docs
-cp <本仓库>/community-extension/description.yml extensions/my_extension/
-cp <本仓库>/community-extension/docs/function_descriptions.csv extensions/my_extension/docs/
+mkdir -p extensions/duckfn_open/docs
+cp <本仓库>/community-extension/description.yml extensions/duckfn_open/
+cp <本仓库>/community-extension/docs/function_descriptions.csv extensions/duckfn_open/docs/
 
 # 3. 提交、推分支、开 PR
-git add extensions/my_extension
-git commit -m "Add my_extension: …"
-gh pr create --repo duckdb/community-extensions --base main --head <你>:add-my-extension
+git add extensions/duckfn_open
+git commit -m "Add duckfn_open: …"
+gh pr create --repo duckdb/community-extensions --base main --head <你>:add-duckfn-open
 ```
 
 维护者会点起来那几条构建工作流（首次贡献者的 PR 会先挂在 `action_required`，等有人批准后才跑，属正常
-状态）。合并之后 `INSTALL my_extension FROM community` 就真的可用了，README 也可以改成那种加载方式。
+状态）。合并之后 `INSTALL duckfn_open FROM community` 就真的可用了，README 也可以改成那种加载方式。
 
 ## 每次发版都要回来改
 

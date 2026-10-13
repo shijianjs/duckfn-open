@@ -1,0 +1,41 @@
+# name: test/sql/duckfn_open.test
+# description: 冒烟测试：扩展能被加载，open_ 系列注册到位
+# group: [duckfn_open]
+
+# 加载之前这些名字不存在（每个 .test 文件都从一个干净的实例开始）
+statement error
+SELECT open_path('report.html');
+----
+Scalar Function with name open_path does not exist
+
+statement error
+SELECT open_commands('report.html');
+----
+Scalar Function with name open_commands does not exist
+
+# require 之后扩展就位（测试框架按 --external-extension 加载本地产物）
+require duckfn_open
+
+# 三个 SQL 名字、五个签名，全在这个扩展的前缀下；不真调用，只认 catalog
+query T
+SELECT string_agg(function_name, ',')
+FROM (
+    SELECT DISTINCT function_name
+    FROM duckdb_functions()
+    WHERE function_name LIKE 'open_%'
+    ORDER BY function_name
+);
+----
+open_commands,open_path,open_path_detached
+
+# 只读预览在本机确实跑通了（这一步不起任何进程）
+query T
+SELECT len(open_commands('duckdb_open.test')) > 0;
+----
+true
+
+# NULL 输入不会走到启动器：加载后第一次调用也保持这个语义
+query T
+SELECT open_path(NULL);
+----
+NULL

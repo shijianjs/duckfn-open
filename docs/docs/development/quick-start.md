@@ -1,7 +1,7 @@
 ---
 title: Quick start
 sidebar_position: 1
-description: Rename the extension, build the .duckdb_extension with the official make toolchain, load it into DuckDB and call the sample functions.
+description: Rename the extension, build the .duckdb_extension with the official make toolchain, load it into DuckDB and call the functions.
 ---
 
 # Quick start
@@ -37,20 +37,21 @@ just rename csv_stats
 ```
 
 `scripts/rename.sh` rewrites the five places the extension name has to match — `Cargo.toml`
-(`[package] name` and `[[example]] name`), `EXTENSION_NAME` in the Makefile, the entry-point symbol in
+(`[package] name`), `EXTENSION_NAME` in the Makefile, the entry-point symbol in
 `src/extension/mod.rs`, the Justfile and the CI workflow — plus every occurrence in the docs, and
-regenerates the `Cargo.lock` entry. It finishes by printing what still needs a human pass; the sample
-functions are the main item.
+regenerates the `Cargo.lock` entry. It finishes by printing what still needs a human pass; the functions
+and their tests are the main item.
 
 ### After renaming
 
 What is left once the name is consistent everywhere:
 
-1. **`AGENTS.md`** — fill in the `{{PROJECT_GOAL}}` placeholder, and change the `my_` prefix in the naming
-   convention to your own.
-2. **The sample functions** (`my_greet` / `my_greet_checked` / `my_sum`) and `test/sql/*.test` — replace
-   them with your API; see [writing functions](./writing-functions.md) and
-   [testing](./testing.md).
+1. **`AGENTS.md`** — fill in the `{{PROJECT_GOAL}}` placeholder, and set the function-name prefix in the
+   naming convention to your own (the prefix here is `open_`).
+2. **The template's sample functions and `test/sql/*.test`** — replace them with your API; see [writing
+   functions](./writing-functions.md) and [testing](./testing.md). This repository has already done that:
+   `open_path` / `open_path_detached` / `open_commands` in `src/extension/functions/`, the platform layer
+   in `src/extension/launcher.rs`, and one `.test` per function file under `test/sql/`.
 3. **`community-extension/description.yml`** — `extension.name` / `description` / `maintainers` / `repo`
    are yours to fill in; the field-by-field reasoning is in
    [community extensions](./community-extension.md).
@@ -64,7 +65,7 @@ What is left once the name is consistent everywhere:
 just build          # = make configure && make debug
 ```
 
-The artifact is `build/debug/my_extension.duckdb_extension`. There is no C++ step and no local DuckDB
+The artifact is `build/debug/duckfn_open.duckdb_extension`. There is no C++ step and no local DuckDB
 build: the extension is compiled against DuckDB's headers and dispatches through its API table when it
 is loaded.
 
@@ -76,36 +77,50 @@ just repl           # a DuckDB REPL with the extension already loaded
 
 ```sql
 -- or by hand; -unsigned is required for a locally built extension
-duckdb -unsigned -c "LOAD './build/debug/my_extension.duckdb_extension';"
+duckdb -unsigned -c "LOAD './build/debug/duckfn_open.duckdb_extension';"
 ```
 
-The sample functions, running right here — the site preloads the extension from the repository's latest
-release, so no local `LOAD` is needed here (a hand-built extension still needs `-unsigned`; see the
-traps below). Click **Run** on any block.
+What the extension registers, read straight out of the catalog. Every `sql` fence on this page is a static
+code block — the site runs nothing in the browser — so paste them into the REPL above (or load the
+artifact into your own `duckdb -unsigned` first):
 
-```sql {"type":"duckfn","show":"table"}
-SELECT name AS input, my_greet_checked(name) AS greeting
-FROM (VALUES ('world'), ('')) t(name);
+```sql
+SELECT function_name, len(parameters) AS args, return_type
+FROM duckdb_functions()
+WHERE function_name IN ('open_path', 'open_path_detached', 'open_commands')
+ORDER BY function_name, args;
 ```
 
-```sql {"type":"duckfn","show":"table"}
--- my_sum skips NULLs, and a group with no value at all is NULL rather than 0.
-SELECT grp, my_sum(x) AS total
-FROM (VALUES ('rows', 1.5::DOUBLE), ('rows', 2.5), ('all NULL', NULL::DOUBLE)) t(grp, x)
-GROUP BY grp
-ORDER BY grp;
+Three SQL names, five signatures: each launcher name has a `(path)` and a `(path, app)` form, merged into
+one function set with `overloads_name`.
+
+A call that starts no process gives the same answer everywhere, which is why `NULL` is the portable demo:
+
+```sql
+SELECT open_path(NULL) AS opened;   -- NULL input short-circuits, so no launcher is called at all
 ```
 
-The failure path is a runnable block too — it declares that it is supposed to fail:
+The failure path is worth running too — an empty argument is an error, not a `false`:
 
-```sql {"type":"duckfn","expect":"error"}
-SELECT my_greet_checked(' x ');    -- error: no surrounding whitespace
+```sql
+SELECT open_path('');    -- error: the path or URL must not be empty
+```
+
+What an actual launch answers depends on this machine's desktop: which launchers are installed, and what
+`.html` is associated with. There is no second place to run it — this extension builds for desktop targets
+only, see [build and release](./build-and-release.md).
+
+```sql
+SELECT open_path('report.html');                    -- default program, waits for the launcher
+SELECT open_path('https://duckdb.org', 'firefox');  -- a program of your choosing
+SELECT open_path_detached('report.html');           -- returns as soon as the launcher started
+SELECT open_commands('report.html');                -- the candidate commands, running none
 ```
 
 A single query from the command line, without a REPL:
 
 ```shell
-just sql "SELECT my_greet('world')"
+just sql "SELECT open_path(NULL)"
 ```
 
 ## 4. Run the tests
@@ -124,13 +139,13 @@ The faster loop is in [Testing](./testing.md).
   the file.
 - **The artifact file name must stay `<extension name>.duckdb_extension`.** DuckDB finds the
   entry-point symbol through the file name, so a copy called `win.duckdb_extension` fails with
-  `did not contain function "my_extension_init_c_api"`.
+  `did not contain function "duckfn_open_init_c_api"`.
 - **`make test` does not rebuild.** After changing Rust code run `just ci-build` (or `make debug`)
   first, otherwise the tests run against the previous artifact.
 
 :::
 
 One more, on Windows: if `make debug` reports the artifact is in use, a DuckDB process is
-holding `build/debug/my_extension.duckdb_extension` (usually a `just repl` left open) — close that
+holding `build/debug/duckfn_open.duckdb_extension` (usually a `just repl` left open) — close that
 process and rebuild. A `.duckdb_extension` is not a renamed DLL: DuckDB's metadata lives at the end of
 the file, so copying a DLL over it produces `The metadata at the end of the file is invalid`.

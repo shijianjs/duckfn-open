@@ -119,17 +119,19 @@ function mountNextSteps(node: HTMLElement, content: NextStepsContent): void {
  * session.
  */
 const INSTALL_SAMPLE = `-- once per installation, then once per session
-INSTALL my_extension FROM community;
-LOAD my_extension;`;
+INSTALL duckfn_open FROM community;
+LOAD duckfn_open;`;
 
 /**
  * The other half: the functions the extension registers, called exactly like
- * DuckDB's own.
+ * DuckDB's own. These three are the shapes a first read needs — a path with the
+ * default program, a URL with a program named in the second argument, and the
+ * one call that starts nothing.
  */
-const USAGE_SAMPLE = `SELECT my_greet_checked('world');  -- Hello, world!
-SELECT my_greet_checked('');       -- NULL
-SELECT my_sum(x) FROM (VALUES (1.5::DOUBLE), (2.5::DOUBLE)) t(x);
--- 4.0`;
+const USAGE_SAMPLE = `SELECT open_path('report.html');  -- true once a launcher has been started
+SELECT open_path('https://duckdb.org', 'firefox');  -- the program is named here
+SELECT open_commands('report.html');
+-- VARCHAR[]: the launch commands open_path would try on this machine, in order`;
 
 /**
  * The shields.io badges ask for `style=flat`, which is the rounded style; the
@@ -205,7 +207,7 @@ function featuresContent(): FeaturesContent {
     sectionTitle: translate({
       id: 'homepage.features.title',
       description: 'Home page section title above the feature cards',
-      message: 'What my_extension gives you',
+      message: 'What duckfn_open gives you',
     }),
     items: [
       {
@@ -219,7 +221,7 @@ function featuresContent(): FeaturesContent {
           id: 'homepage.features.sql.details',
           description: 'Home page feature card description',
           message:
-            "my_greet, my_greet_checked and my_sum are ordinary DuckDB functions: use them in any query, alongside DuckDB's own, with nothing to import.",
+            'open_path, open_path_detached and open_commands are ordinary DuckDB functions: use them in any query, alongside the built-in ones, with nothing to import.',
         }),
       },
       {
@@ -233,7 +235,7 @@ function featuresContent(): FeaturesContent {
           id: 'homepage.features.install.details',
           description: 'Home page feature card description',
           message:
-            'INSTALL my_extension FROM community; then LOAD my_extension; \u2014 signed builds matched to your DuckDB version and platform, so no -unsigned flag is needed.',
+            'INSTALL duckfn_open FROM community; then LOAD duckfn_open; \u2014 signed builds matched to your DuckDB version and platform, so no -unsigned flag is needed.',
         }),
       },
       {
@@ -241,13 +243,13 @@ function featuresContent(): FeaturesContent {
         title: translate({
           id: 'homepage.features.platforms.title',
           description: 'Home page feature card title',
-          message: 'Every platform, on every release',
+          message: 'Windows, Linux and macOS',
         }),
         details: translate({
           id: 'homepage.features.platforms.details',
           description: 'Home page feature card description',
           message:
-            'Each version attaches one .duckdb_extension per platform to a GitHub Release, and LOAD takes a file straight from its URL \u2014 no download step in between.',
+            'Each version attaches one .duckdb_extension per desktop platform to a GitHub Release, and LOAD takes a file straight from its URL \u2014 no download step in between. There is no WebAssembly asset: a launcher is desktop software.',
         }),
       },
       {
@@ -265,17 +267,17 @@ function featuresContent(): FeaturesContent {
         }),
       },
       {
-        icon: 'lucide:play',
+        icon: 'lucide:code',
         title: translate({
           id: 'homepage.features.examples.title',
           description: 'Home page feature card title',
-          message: 'Examples that run here',
+          message: 'Examples to run in your own DuckDB',
         }),
         details: translate({
           id: 'homepage.features.examples.details',
           description: 'Home page feature card description',
           message:
-            'Every example on this site runs in your browser through DuckDB-Wasm \u2014 click Run on the function reference and see the real result.',
+            'The function reference is plain SQL: load the extension into a local DuckDB and paste it in. These pages run nothing for you \u2014 the launcher they talk to lives on the machine the query runs on.',
         }),
       },
       {
@@ -317,7 +319,7 @@ function nextStepsContent(
         details: translate({
           id: 'homepage.next.intro.details',
           description: 'Home page link card description',
-          message: 'What my_extension adds to DuckDB, in one page.',
+          message: 'What duckfn_open adds to DuckDB, in one page.',
         }),
       },
       {
@@ -343,7 +345,7 @@ function nextStepsContent(
         details: translate({
           id: 'homepage.next.functions.details',
           description: 'Home page link card description',
-          message: 'Every function, with an example you can run right here.',
+          message: 'Every function, with an example to run in your own DuckDB.',
         }),
       },
       {
@@ -396,8 +398,9 @@ function CodeShowcase(): ReactNode {
               <Translate
                 id="homepage.showcase.caption"
                 description="Home page note under the SQL code block explaining the trailing comments">
-                The comments are what each call returns — and the last one is a
-                real sum over two rows.
+                The comments are what each call answers: true once a launcher
+                has been started, and the last line lists the commands a launch
+                would try — without trying any of them.
               </Translate>
             </p>
           </div>

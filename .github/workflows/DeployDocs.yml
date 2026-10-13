@@ -2,11 +2,7 @@
 # 构建 docs/ 里的 Docusaurus 站点，并发布到 GitHub Pages。
 #
 # 触发面：扩展分发流水线**跑完之后**（`Main Extension Distribution Pipeline`），或从 Actions 页手动
-# 发起；普通提交不构建站点。
-#
-# 等流水线是必须的：站点预加载的是**已发布**的 wasm（见下面 build 步骤的
-# DOCS_EXTENSION_FROM_RELEASE），而那个 Release 由流水线最后一个 job 创建 —— 直接挂 tag 会在构建
-# 抢跑、拉到的还是上一个 release。
+# 发起；普通提交不构建站点。也就是说文档站跟着**发版**走，一个 release 一次部署。
 #
 # `workflow_run` 跑在默认分支上，所以下面显式 checkout 那个 tag 的 SHA；deploy job 看到的 ref 因此是
 # 分支 `main`。
@@ -20,10 +16,8 @@
 # 一次性设置：仓库 Settings -> Pages -> Build and deployment -> Source 选 "GitHub Actions"。
 #
 # Builds the Docusaurus site in docs/ and publishes it to GitHub Pages. Triggered by the extension
-# distribution pipeline finishing — not by the version tag itself — or manually from the Actions tab.
-# The order matters: the deployed site preloads the *released* wasm, and that release is created by the
-# pipeline's last job, so a tag-triggered deploy would race the build and fetch the previous release.
-# One-time setup: repository Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+# distribution pipeline finishing — so the site goes live with a release — or manually from the Actions
+# tab. One-time setup: repository Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
 #
 name: Deploy Docs
 on:
@@ -98,14 +92,8 @@ jobs:
         # A project site is served from /<repo>/, so Docusaurus is told the real url/baseUrl
         # instead of relying on the local-development fallbacks in docusaurus.config.ts.
         #
-        # GITHUB_TOKEN lifts the anonymous release-API rate limit the dfkExtensions plugin hits when
-        # it fetches the extension wasm file from the latest release (see docs/docusaurus.config.ts).
-        #
-        # DOCS_EXTENSION_FROM_RELEASE 只在这里设：只有部署出去的站点才去拉 release 的 wasm，本地构建
-        # 一律用 static/ 下本地产出的那份（见 docs/docusaurus.config.ts）。
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          DOCS_EXTENSION_FROM_RELEASE: '1'
+        # 站点不再从 release 取扩展产物（可运行 SQL 块连同 wasm 预加载一起退出了），所以这里既不需要
+        # DOCS_EXTENSION_FROM_RELEASE，也不需要 GITHUB_TOKEN 去抬 release API 的速率限制。
         run: |
           set -euo pipefail
           # `base_url` is "https://<host>/<path>" and Docusaurus rejects it: `url` must be a bare

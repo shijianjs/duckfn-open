@@ -35,8 +35,15 @@ jobs:
     with:
       duckdb_version: v1.5.6
       ci_tools_version: v1.5-variegata
-      extension_name: my_extension
+      extension_name: duckfn_open
       extra_toolchains: rust;python3
+      # 不构建 wasm：这个扩展包装的是桌面启动器（见 src/extension/launcher.rs），wasm 里没有启动器可以起，
+      # 那份产物也就没有意义。ci-tools 的 wasm 架构是 wasm_mvp / wasm_eh / wasm_threads。
+      #
+      # No wasm builds: this extension wraps a desktop launcher (see src/extension/launcher.rs), and a
+      # wasm target has no launcher to start, so that artifact would mean nothing. ci-tools' wasm
+      # architectures are wasm_mvp / wasm_eh / wasm_threads.
+      exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads'
 
   # 发布 GitHub Release：把上面那个 job 为每个平台构建出的扩展二进制挂到当前 tag 的 Release 上
   # （已经有 Release 就只补资产）。关键是那个 `if`：只有当前 ref 是版本 tag 才跑 —— PR 上
@@ -61,7 +68,7 @@ jobs:
       # default read-only permissions do not allow.
       contents: write
     env:
-      EXTENSION_NAME: my_extension
+      EXTENSION_NAME: duckfn_open
       # 与上面 `duckdb_version` 一致：它也是 ci-tools 给产物命名时用的那一段。
       #
       # Must match `duckdb_version` above: it is also the segment ci-tools uses to name the artifacts.
@@ -75,22 +82,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ci-tools 的产物名固定为 `<扩展名>-<DuckDB 版本>-extension-<架构>[.wasm]`，所以按前缀取。
+      # ci-tools 的产物名固定为 `<扩展名>-<DuckDB 版本>-extension-<架构>`，所以按前缀取。
       #
-      # ci-tools always names its artifacts `<extension>-<duckdb version>-extension-<arch>[.wasm]`, hence
-      # the pattern.
+      # ci-tools always names its artifacts `<extension>-<duckdb version>-extension-<arch>`, hence the
+      # pattern.
       - name: Download extension artifacts
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          pattern: 'my_extension-*-extension-*'
+          pattern: 'duckfn_open-*-extension-*'
           path: artifacts
 
-      # 把产物摊平：`<扩展名>-<架构>.duckdb_extension`（wasm 则 `.duckdb_extension.wasm`）。
-      # 架构从产物名里剥出来，中间那两段（扩展名、DuckDB 版本）在资产名里是冗余的。
+      # 把产物摊平：`<扩展名>-<架构>.duckdb_extension`。架构从产物名里剥出来，中间那两段（扩展名、
+      # DuckDB 版本）在资产名里是冗余的。
       #
-      # Flattens the artifacts into `<extension>-<arch>.duckdb_extension` (`.duckdb_extension.wasm` for
-      # wasm). The architecture is taken out of the artifact name; the extension name and the DuckDB
-      # version in the middle would be redundant in an asset name.
+      # Flattens the artifacts into `<extension>-<arch>.duckdb_extension`. The architecture is taken out
+      # of the artifact name; the extension name and the DuckDB version in the middle would be redundant
+      # in an asset name.
       - name: Collect extension binaries
         run: |
           set -euo pipefail
@@ -99,17 +106,15 @@ jobs:
           found=0
           while IFS= read -r file; do
             case "$file" in
-              *.duckdb_extension.wasm) suffix=".duckdb_extension.wasm" ;;
-              *.duckdb_extension)      suffix=".duckdb_extension" ;;
+              *.duckdb_extension) ;;
               *) continue ;;
             esac
             artifact="${file#artifacts/}"
             artifact="${artifact%%/*}"
             arch="${artifact#"$prefix"}"
-            arch="${arch%.wasm}"
-            cp "$file" "release-assets/${EXTENSION_NAME}-${arch}${suffix}"
+            cp "$file" "release-assets/${EXTENSION_NAME}-${arch}.duckdb_extension"
             found=$((found + 1))
-          done < <(find artifacts -type f \( -name '*.duckdb_extension' -o -name '*.duckdb_extension.wasm' \) | sort)
+          done < <(find artifacts -type f -name '*.duckdb_extension' | sort)
           # 一个二进制都没找到就直接失败：否则会发一个空 Release，比不发更难看出问题。
           #
           # Fail hard when nothing was found: an empty release is harder to notice than a failed job.

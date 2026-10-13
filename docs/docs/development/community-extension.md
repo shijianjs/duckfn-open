@@ -10,8 +10,8 @@ Registering the extension in [duckdb/community-extensions](https://github.com/du
 is what turns "download a file from a GitHub Release" into:
 
 ```sql
-INSTALL my_extension FROM community;   -- once, needs network
-LOAD my_extension;
+INSTALL duckfn_open FROM community;   -- once, needs network
+LOAD duckfn_open;
 ```
 
 The community build is signed and matches the user's DuckDB version, so `-unsigned` is no longer
@@ -19,8 +19,8 @@ needed. The registration itself is a pull request that adds **two files**:
 
 | In this repository | In the community repository |
 | --- | --- |
-| `community-extension/description.yml` | `extensions/my_extension/description.yml` |
-| `community-extension/docs/function_descriptions.csv` | `extensions/my_extension/docs/function_descriptions.csv` |
+| `community-extension/description.yml` | `extensions/duckfn_open/description.yml` |
+| `community-extension/docs/function_descriptions.csv` | `extensions/duckfn_open/docs/function_descriptions.csv` |
 
 The directory name must equal `extension.name` exactly — the community repository's `scripts/build.py`
 checks it.
@@ -34,11 +34,17 @@ to the function it describes:
 
 ```rust
 #[duck_scalar_function(
-    description = "Greets someone by name, the simplest possible scalar function",
-    comment = "…",
-    example = "SELECT my_greet('world')"
+    description = "Lists, without running them, the launcher commands open_path would try in order",
+    comment = "The read-only pair of open_path: nothing is started, so the result is stable enough to \
+               assert in CI on a headless runner",
+    example = "SELECT open_commands('report.html')"
 )]
 ```
+
+`open_path` uses `examples = [ … ]` instead of the single `example`, for the two calls worth showing
+(`(path)` and `(path, app)`); the export joins them with `"; "`. And the CSV carries one row per **SQL
+name** — `open_path`, `open_path_detached`, `open_commands` — not one per signature: the two signatures
+merged in with `overloads_name` carry no description of their own, so they add no row.
 
 Regenerate and copy it whenever those attributes change:
 
@@ -84,7 +90,7 @@ that need a decision:
 | `extension.maintainers` | Your GitHub handle. |
 | `repo.github` | `owner/repository`. |
 | `repo.ref` | The **commit SHA** (40 characters) of the released version — `git rev-list -n 1 v0.1.0` — not `main` and not the tag name. A registration points at immutable code, and a build from a branch would claim a development version. |
-| `docs.hello_world` | A runnable example, rendered into a code block. Do not write `INSTALL` / `LOAD` here: the page adds those itself. |
+| `docs.hello_world` | A runnable example, rendered into a code block. Do not write `INSTALL` / `LOAD` here: the page adds those itself. The draft in `community-extension/description.yml` leads with `SELECT open_commands('report.html')`, the one entry point that starts no process. |
 | `docs.extended_description` | The prose around the function table. |
 
 `community-extension/AGENTS.md` explains each field's provenance and the submission steps in more
@@ -94,21 +100,21 @@ detail.
 
 ```shell
 # 1. in a clone of your fork of duckdb/community-extensions
-git checkout -b add-my-extension
+git checkout -b add-duckfn-open
 
 # 2. copy the two files into place
-mkdir -p extensions/my_extension/docs
-cp <this repo>/community-extension/description.yml extensions/my_extension/
-cp <this repo>/community-extension/docs/function_descriptions.csv extensions/my_extension/docs/
+mkdir -p extensions/duckfn_open/docs
+cp <this repo>/community-extension/description.yml extensions/duckfn_open/
+cp <this repo>/community-extension/docs/function_descriptions.csv extensions/duckfn_open/docs/
 
 # 3. commit, push, open the PR
-git add extensions/my_extension
-git commit -m "Add my_extension: …"
-gh pr create --repo duckdb/community-extensions --base main --head <you>:add-my-extension
+git add extensions/duckfn_open
+git commit -m "Add duckfn_open: …"
+gh pr create --repo duckdb/community-extensions --base main --head <you>:add-duckfn-open
 ```
 
 The maintainers will run the build workflows (a first-time contributor's run shows up as
-`action_required` until someone approves it — that is normal). After the merge, `INSTALL my_extension
+`action_required` until someone approves it — that is normal). After the merge, `INSTALL duckfn_open
 FROM community` works, and the README can point at it.
 
 ## Keeping it in step

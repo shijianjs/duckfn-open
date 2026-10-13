@@ -338,7 +338,7 @@
     "description": "Home page button linking to the repository"
   },
   "homepage.features.title": {
-    "message": "my_extension 能给你什么",
+    "message": "duckfn_open 能给你什么",
     "description": "Home page section title above the feature cards"
   },
   "homepage.features.sql.title": {
@@ -346,7 +346,7 @@
     "description": "Home page feature card title"
   },
   "homepage.features.sql.details": {
-    "message": "my_greet、my_greet_checked 与 my_sum 就是普通的 DuckDB 函数：放进任意查询，和内置函数一起用，调用处不需要 import 任何东西。",
+    "message": "open_path、open_path_detached 与 open_commands 就是普通的 DuckDB 函数：放进任意查询，和内置函数一起用，调用处不需要 import 任何东西。",
     "description": "Home page feature card description"
   },
   "homepage.features.install.title": {
@@ -354,15 +354,15 @@
     "description": "Home page feature card title"
   },
   "homepage.features.install.details": {
-    "message": "INSTALL my_extension FROM community; 再 LOAD my_extension; —— 构建签过名、且与你的 DuckDB 版本和平台匹配，所以不用加 -unsigned。",
+    "message": "INSTALL duckfn_open FROM community; 再 LOAD duckfn_open; —— 构建签过名、且与你的 DuckDB 版本和平台匹配，所以不用加 -unsigned。",
     "description": "Home page feature card description"
   },
   "homepage.features.platforms.title": {
-    "message": "每个版本都有各平台产物",
+    "message": "Windows、Linux 与 macOS",
     "description": "Home page feature card title"
   },
   "homepage.features.platforms.details": {
-    "message": "每个版本都会把各平台各一份 .duckdb_extension 挂到 GitHub Release 上，LOAD 可以直接按 URL 取，中间不用先下载。",
+    "message": "每个版本都会把各桌面平台各一份 .duckdb_extension 挂到 GitHub Release 上，LOAD 可以直接按 URL 取，中间不用先下载。没有 WebAssembly 资产 —— 启动器是桌面软件。",
     "description": "Home page feature card description"
   },
   "homepage.features.versions.title": {
@@ -374,11 +374,11 @@
     "description": "Home page feature card description"
   },
   "homepage.features.examples.title": {
-    "message": "例子就地能跑",
+    "message": "在你自己的 DuckDB 里跑的例子",
     "description": "Home page feature card title"
   },
   "homepage.features.examples.details": {
-    "message": "本站每个例子都在你的浏览器里用 DuckDB-Wasm 真跑 —— 在函数页点一下「执行」就能看到真实结果。",
+    "message": "函数参考页里就是普通 SQL：在本地的 DuckDB 里加载扩展，把语句粘进去即可。这些页面不会替你跑任何东西 —— 它们讲的那个启动器住在查询运行的那台机器上。",
     "description": "Home page feature card description"
   },
   "homepage.features.license.title": {
@@ -398,7 +398,7 @@
     "description": "Home page paragraph introducing the SQL code blocks"
   },
   "homepage.showcase.caption": {
-    "message": "注释就是每次调用的返回值 —— 最后一行是对两行数据真实求和的结果。",
+    "message": "注释写的是每次调用的答复：启动器被拉起时就是 true；最后一行列出真去启动时会依次尝试的命令 —— 而它一条都不会尝试。",
     "description": "Home page note under the SQL code block explaining the trailing comments"
   },
   "homepage.showcase.link": {
@@ -414,7 +414,7 @@
     "description": "Home page link card title"
   },
   "homepage.next.intro.details": {
-    "message": "一页说清 my_extension 给 DuckDB 加了什么。",
+    "message": "一页说清 duckfn_open 给 DuckDB 加了什么。",
     "description": "Home page link card description"
   },
   "homepage.next.installation.title": {
@@ -430,7 +430,7 @@
     "description": "Home page link card title"
   },
   "homepage.next.functions.details": {
-    "message": "每个函数，配一个能就地跑的例子。",
+    "message": "每个函数，配一个在你自己的 DuckDB 里跑的例子。",
     "description": "Home page link card description"
   },
   "homepage.next.development.title": {

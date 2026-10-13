@@ -3,7 +3,7 @@
 # 只改一处：把 extension_name 改成你的扩展名（或直接跑 `just rename <新名字>` 让别人替你改）。
 # 它必须与下面四处一致，否则 LOAD 会失败：
 #   - src/extension/mod.rs 里 duckfn_entrypoint!("...") 的名字
-#   - Cargo.toml 的 [package] name 与 [[example]] name
+#   - Cargo.toml 的 [package] name
 #   - Makefile 里的 EXTENSION_NAME
 #   - .github/workflows/MainDistributionPipeline.yml 的 extension_name
 #
@@ -40,8 +40,32 @@ default:
     @just --list
 
 # 扩展名：全小写、只含下划线
-extension_name := "my_extension"
+extension_name := "duckfn_open"
 
 # 克隆模板后第一件事：把扩展名改掉（Cargo.toml / Makefile / Justfile / extension/mod.rs / CI / 文档）
 rename new_name:
     bash scripts/rename.sh "{{new_name}}"
+
+# ==== 本项目排除的共享 recipe ====
+#
+# 启动器是桌面软件，这个扩展只构建桌面平台：Cargo.toml 里没有 wasm 的 [[example]]，src/extension/launcher.rs
+# 也没有 wasm 替身，CI 矩阵把 wasm_mvp / wasm_eh / wasm_threads 排除了（见 AGENTS.md「排除 wasm 构建」）。
+# 共享副本 scripts/common.just 里的那三条 recipe 因此只剩一条说明 —— 副本不能改（改了下次 `just sync-common`
+# 就没了），本项目里的行为差异按约定在这里覆盖。
+#
+# This project excludes the shared wasm recipes: a launcher is desktop software, so there is no wasm
+# `[[example]]` in Cargo.toml, no wasm stand-ins in src/extension/launcher.rs, and the CI matrix excludes
+# the wasm architectures (see AGENTS.md). The copies in scripts/common.just must not be edited — a
+# project-local behaviour change is overridden here instead, as the convention says.
+[private]
+no_wasm:
+    @echo "duckfn_open 不构建 wasm / this extension has no wasm build — 启动器是桌面软件 (a launcher is desktop software)"
+
+# 已排除：本扩展只构建桌面平台
+build_wasm: no_wasm
+
+# 已排除：本扩展只构建桌面平台
+build_wasm_eh: no_wasm
+
+# 已排除：文档站没有可运行 SQL 块，也就没有 wasm 产物要校验
+test_wasm: no_wasm

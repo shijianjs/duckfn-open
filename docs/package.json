@@ -14,10 +14,7 @@
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
-    "typecheck": "tsc",
-    "test:sql": "playwright test",
-    "test": "npm run test:sql",
-    "test:sql:report": "playwright show-report"
+    "typecheck": "tsc"
   },
   "dependencies": {
     "@docusaurus/core": "3.10.2",
@@ -36,12 +33,8 @@
     "@docusaurus/module-type-aliases": "3.10.2",
     "@docusaurus/tsconfig": "3.10.2",
     "@docusaurus/types": "3.10.2",
-    "@playwright/test": "^1.63.0",
     "@types/react": "^19.0.0",
     "typescript": "~6.0.2"
-  },
-  "overrides": {
-    "@duckdb/duckdb-wasm": "1.33.1-dev65.0"
   },
   "browserslist": {
     "production": [

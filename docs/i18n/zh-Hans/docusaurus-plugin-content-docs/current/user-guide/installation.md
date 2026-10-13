@@ -1,21 +1,22 @@
 ---
 title: 安装
 sidebar_position: 2
-description: 装 my_extension 的三条路 —— DuckDB 社区仓、GitHub Release，或本地自己构建的产物 —— 以及怎么确认它加载上了。
+description: 装 duckfn_open 的三条路 —— DuckDB 社区仓、GitHub Release，或本地自己构建的产物 —— 以及怎么确认它加载上了。
 ---
 
 # 安装
 
-`my_extension` 需要 **DuckDB 1.3 或更新**。它是一个普通的可加载扩展，`INSTALL` 与 `LOAD` 就是全部；
-没有额外的下载、库文件或配置步骤。
+`duckfn_open` 需要 **DuckDB 1.3 或更新**。它是一个普通的可加载扩展，`INSTALL` 与 `LOAD` 就是全部；
+没有额外的下载、库文件或配置步骤。它跑在一台有桌面的机器上 —— Windows、Linux 或 macOS —— 因为启动器
+就在那里。
 
 ## 从社区仓安装
 
 最省事的一条，也是唯一不需要任何命令行开关的：
 
 ```sql
-INSTALL my_extension FROM community;
-LOAD my_extension;
+INSTALL duckfn_open FROM community;
+LOAD duckfn_open;
 ```
 
 DuckDB 会下载一份签过名、且与你本机 DuckDB 版本和平台匹配的构建。`INSTALL` 只需做一次，但每个新会话
@@ -34,7 +35,7 @@ DuckDB 会下载一份签过名、且与你本机 DuckDB 版本和平台匹配�
 那一份：
 
 ```sql
-LOAD 'https://github.com/<owner>/<repo>/releases/latest/download/my_extension-windows_amd64.duckdb_extension';
+LOAD 'https://github.com/<owner>/<repo>/releases/latest/download/duckfn_open-windows_amd64.duckdb_extension';
 ```
 
 Release 里的文件没有用 DuckDB 的发行密钥签名，所以 DuckDB 必须加 `-unsigned` 启动：
@@ -43,15 +44,17 @@ Release 里的文件没有用 DuckDB 的发行密钥签名，所以 DuckDB 必�
 duckdb -unsigned
 ```
 
-在 Release 页面上挑对应平台的资产 —— 命名规则是 `my_extension-<平台>.duckdb_extension`
-（`windows_amd64`、`linux_amd64`、`osx_arm64` 等），另有一份给浏览器用的 WebAssembly 构建。
+在 Release 页面上挑对应平台的资产 —— 命名规则是 `duckfn_open-<平台>.duckdb_extension`
+（`windows_amd64`、`linux_amd64`、`osx_arm64` 之类）。发布的只有桌面平台，也只有这些平台装载这个扩展
+有意义：Windows、Linux 与 macOS 各有一个可以把文件交出去的启动器，而 WebAssembly 构建一个都没有，所以
+也不存在那样的资产。
 
 ## 从本地构建的产物安装
 
 如果你自己从源码构建了扩展，把 `LOAD` 指到产物上 —— 同样要用 `-unsigned` 启动 DuckDB：
 
 ```sql
-LOAD './build/debug/my_extension.duckdb_extension';
+LOAD './build/debug/duckfn_open.duckdb_extension';
 ```
 
 怎么构建见[开发指南](../development/quick-start.md)。
@@ -63,13 +66,14 @@ LOAD './build/debug/my_extension.duckdb_extension';
 ```sql
 SELECT extension_name, installed, loaded
 FROM duckdb_extensions()
-WHERE extension_name = 'my_extension';
+WHERE extension_name = 'duckfn_open';
 ```
 
 ```sql
-SELECT function_name, function_type, return_type
+SELECT function_name, len(parameters), return_type
 FROM duckdb_functions()
-WHERE function_name LIKE 'my%';
+WHERE function_name LIKE 'open%';
 ```
 
-三个函数就是三行；如果一行都没有，说明你查的这个会话里没有加载这个扩展。
+这个扩展注册的三个名字对应五行（`open_path` 与 `open_path_detached` 各带两个签名）；如果一行都没有，
+说明你查的这个会话里没有加载这个扩展。

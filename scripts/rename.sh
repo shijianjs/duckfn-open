@@ -2,7 +2,7 @@
 #
 # 把模板里的占位扩展名（默认 `my_extension`）换成你的扩展名 —— 克隆模板后的第一件事。
 #
-# 它改的是「扩展名」这一个字符串：Cargo.toml（crate 名与 [[example]] 名）、Makefile 的 EXTENSION_NAME、
+# 它改的是「扩展名」这一个字符串：Cargo.toml（crate 名）、Makefile 的 EXTENSION_NAME、
 # src/extension/mod.rs 的 duckfn_entrypoint!、Justfile 的 extension_name、CI 工作流的 extension_name，
 # 以及 README 与 docs 文档里出现的那些（加载路径、示例命令）。这些地方必须处处一致，漏一处就是
 # `LOAD` 失败或 CI 构建出的产物名字对不上。

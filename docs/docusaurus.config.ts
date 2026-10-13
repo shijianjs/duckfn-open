@@ -2,12 +2,10 @@ import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 import {remarkVersionPlaceholder} from 'duckfn-docs-kit/remark';
-import {remarkRunnableSql} from 'duckfn-docs-kit/sql/remark';
 import {remarkMermaid} from 'duckfn-docs-kit/mermaid/remark';
 import {dfkExtensions} from 'duckfn-docs-kit/sql/extensions';
 import {dfkTocToggle} from 'duckfn-docs-kit/toc-toggle/plugin';
 import {EXTENSION_VERSION} from './extension-version';
-import type {UrlPreloadEntry} from 'duckfn-docs-kit/sql/runtimeConfig';
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
@@ -15,47 +13,19 @@ import type {UrlPreloadEntry} from 'duckfn-docs-kit/sql/runtimeConfig';
 // 克隆模板后要改的就是这一段
 //
 // 仓库地址出现在导航栏的 Links 下拉、页脚与首页按钮上，所以只写一份、由下面各处引用，
-// 而不是逐个页面硬编码。`my_extension` 那几处由 `just rename <新名字>` 自动改写。
+// 而不是逐个页面硬编码。`duckfn_open` 那几处由 `just rename <新名字>` 自动改写。
 //
 // What to edit after cloning the template. The repository URL shows up in the navbar dropdown, the
 // footer and the home page button, so it is written once and referenced everywhere else. The
-// `my_extension` occurrences are rewritten by `just rename <new-name>`.
+// `duckfn_open` occurrences are rewritten by `just rename <new-name>`.
 // ============================================================================
-// 模板自己的仓库地址：首页徽章、导航栏、页脚与可运行 SQL 的扩展预加载都从这里取。克隆后**要改成你的
-// 仓库**（`just rename` 只改扩展名，不动这个 URL），否则预加载会去模板仓库找 Release。
+// 模板自己的仓库地址：首页徽章、导航栏与页脚都从这里取。克隆后**要改成你的仓库**（`just rename` 只改
+// 扩展名，不动这个 URL）。
 //
-// The template's own repository: the home-page badges, the navbar, the footer and the runnable SQL
-// preload all read it from here. **Repoint it at your repository after cloning** — `just rename` only
-// rewrites the extension name, not this URL — or the preload will look for a release in the template's
-// repository instead of yours.
-const REPO_URL = 'https://github.com/shijianjs/duckfn-extension-template';
-
-// `dfkExtensions` 要的是 `owner/repo` 这个 slug，而不是完整 URL（见下面 plugins 的 preload 列表）。
-//
-// `dfkExtensions` wants the `owner/repo` slug rather than the URL (see the `preload` list in `plugins`).
-const REPO_SLUG = REPO_URL.replace(/^https:\/\/github\.com\//, '');
-
-// 可运行 SQL 预加载的那个 wasm 从哪来，由 `DOCS_EXTENSION_FROM_RELEASE` 区分：只有 GitHub Pages
-// 部署会设它，去仓库最新 release 取资产（那里安全，因为部署排在扩展分发流水线跑完之后，见
-// ../.github/workflows/DeployDocs.yml）；其他构建一律用 `static/duckdb-extensions/` 下已有的文件 ——
-// 也就是 `just build_wasm_eh` 产出的那份本机构建，从不碰 release。`just test_wasm` 会先构建它，
-// 再跑文档里的 SQL 测试。
-//
-// Where the preloaded wasm comes from is decided by `DOCS_EXTENSION_FROM_RELEASE`: only the GitHub
-// Pages deployment sets it and fetches the asset from the repository's latest release (safe there,
-// because that workflow runs after the extension pipeline published it); every other build serves the
-// file already under `static/duckdb-extensions/` — the one `just build_wasm_eh` wrote. `just test_wasm`
-// builds it and then runs the docs' SQL test.
-const preloadedExtension: UrlPreloadEntry =
-  process.env.DOCS_EXTENSION_FROM_RELEASE === '1'
-    ? {
-        // Served at <baseUrl>/duckdb-extensions/my_extension.duckdb_extension.wasm. The name must
-        // keep `my_extension` before the first dot: that base is the entry symbol DuckDB looks up,
-        // hence the rename from the release asset (which carries the wasm suffix).
-        url: 'duckdb-extensions/my_extension.duckdb_extension.wasm',
-        release: {repository: REPO_SLUG, asset: 'my_extension-wasm_eh.duckdb_extension.wasm'},
-      }
-    : {url: 'duckdb-extensions/my_extension.duckdb_extension.wasm'};
+// The template's own repository: the home-page badges, the navbar and the footer read it from here.
+// **Repoint it at your repository after cloning** — `just rename` only rewrites the extension name, not
+// this URL.
+const REPO_URL = 'https://github.com/shijianjs/duckfn-open';
 
 // GitHub Pages 把项目站挂在子路径下（https://<owner>.github.io/<repo>），所以 `url` / `baseUrl`
 // 由工作流注入（见 ../.github/workflows/DeployDocs.yml）。下面两个是本地开发的兜底值。
@@ -67,7 +37,7 @@ const url = process.env.DOCS_URL ?? 'http://localhost:3000';
 const baseUrl = process.env.DOCS_BASE_URL ?? '/';
 
 const config: Config = {
-  title: 'my_extension',
+  title: 'duckfn_open',
   tagline: 'Extra SQL functions for DuckDB',
   favicon: 'img/logo.svg',
 
@@ -88,12 +58,12 @@ const config: Config = {
   // links keep working through the redirect.
   trailingSlash: true,
 
-  // 客户端增强一律由 duckfn-docs-kit 的插件注入（见下面 plugins）：`dfkExtensions` 注册 `dfk-*` 元素，
-  // `dfkTocToggle` 注入目录折叠控件 —— 本站因此不再需要 src/clientModules/ 里的自备文件。
+  // 客户端增强由 duckfn-docs-kit 提供：目录折叠控件是 `dfkTocToggle` 插件（见下面 plugins），`dfk-*`
+  // 元素由首页自己调 `registerDfkElements()` 注册 —— 本站因此不需要 src/clientModules/ 里的自备文件。
   //
-  // Client-side enhancements all come from the kit's plugins (see `plugins` below): `dfkExtensions`
-  // registers the `dfk-*` elements and `dfkTocToggle` injects the TOC collapse control, so this site
-  // keeps no src/clientModules/ files of its own.
+  // Client-side enhancements come from the kit as well: the TOC collapse control is the `dfkTocToggle`
+  // plugin (see `plugins` below), and the `dfk-*` elements are registered by the home page calling
+  // `registerDfkElements()`, so this site keeps no src/clientModules/ files of its own.
 
   // English is the source language; every page under docs/ can be translated under
   // i18n/zh-Hans/. Add more locales here when needed.
@@ -130,18 +100,22 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           // Replaces the `{{EXTENSION_VERSION}}` placeholder with the version from
           // docs/extension-version.ts, so a release only has to update that one file.
-          // All three plugins ship in duckfn-docs-kit; only the version value is site-specific.
-          // `remarkRunnableSql` turns `sql {"type":"duckfn",…}` fenced blocks into
-          // `<dfk-sql>` runnable examples (see docs/README.md).
+          // Both plugins ship in duckfn-docs-kit; only the version value is site-specific.
           // `remarkMermaid` turns ```mermaid fences into `<dfk-mermaid>` diagrams; the look and
           // the palette come from the kit's defaults, and a site that wants its own passes
           // `remarkMermaid({config: {…}})` (see docs/README.md).
+          // There is no `remarkRunnableSql` here: running a block would need this extension built as
+          // wasm, and it builds for desktop targets only (see the WebAssembly section of
+          // docs/docs/development/build-and-release.md), so every sql fence on the site is a static
+          // code block.
           //
           // `remarkMermaid` 把 ```mermaid 围栏转成 `<dfk-mermaid>` 图；主题的观感/配色由 kit 的默认值
           // 提供，要改就传 `remarkMermaid({config: {…}})`（见 docs/README.md）。
+          // 这里**没有** `remarkRunnableSql`：可运行块要把本扩展编成 wasm 才跑得起来，而它只构建桌面平台
+          // （见 docs/docs/development/build-and-release.md 的 WebAssembly 一节），所以站上的 sql 围栏
+          // 全是静态代码块。
           remarkPlugins: [
             [remarkVersionPlaceholder, {version: EXTENSION_VERSION, placeholder: '{{EXTENSION_VERSION}}'}],
-            remarkRunnableSql,
             remarkMermaid,
           ],
           // Remove this to remove the "edit this page" links.
@@ -159,24 +133,15 @@ const config: Config = {
     ],
   ],
 
-  // 文档 kit 的装配：`dfkExtensions` 让每页的预加载列表可解析 —— 带 release 的条目会在 dev/build
-  // 启动时拉取进 `static/`（本地缓存，只有 release 资产的 sha256 变了才重下），不带的就原样留着 ——
-  // 然后把有序列表注入每个页面（kit 的运行时在 DuckDB 初始化时依次 LOAD），并注册 `dfk-*` 元素；
+  // 文档 kit 的装配：`dfkExtensions` 注入它的客户端模块，在每个页面上定义 `dfk-*` 元素（文档页里的
+  // mermaid 图靠它）；这里不再传 `preload` —— 那件事属于可运行 SQL，而本站没有可运行块。
   // `dfkTocToggle` 加上目录折叠控件。两者一起取代了本站以前自备的 src/clientModules/。
   //
-  // Runnable SQL blocks call the extension, so one has to exist: in CI it is the wasm attached to the
-  // repository's latest GitHub Release, locally it is the build `just build_wasm_eh` produced — see
-  // `preloadedExtension` above and docs/README.md, "Preloaded extensions". A clone repoints `REPO_URL`
-  // at its own repository and cuts a release before the deployed blocks can run.
-  plugins: [
-    dfkExtensions({
-      // CI builds the release assets without DuckDB's signing keys — the same reason local
-      // development runs `duckdb -unsigned`.
-      allowUnsignedExtensions: true,
-      preload: [preloadedExtension],
-    }),
-    dfkTocToggle(),
-  ],
+  // The kit's wiring: `dfkExtensions` injects its client module, which defines the `dfk-*` elements on
+  // every page (the mermaid diagrams in the docs need them). No `preload` any more — that belonged to
+  // the runnable SQL blocks, and this site has none. `dfkTocToggle` adds the TOC collapse control.
+  // Together they replace the src/clientModules/ files this site used to carry.
+  plugins: [dfkExtensions(), dfkTocToggle()],
 
   // 搜索在构建期由 `@easyops-cn/docusaurus-search-local` 生成（它的 postBuild，每个 locale 一份
   // lunr 索引），随站点静态发布 —— 不需要 Algolia 账号、索引申请和 API key，索引与站点永远出自同一次
@@ -218,9 +183,9 @@ const config: Config = {
       // past it, and slides back in on the way up. The theme already ships that animation as hashed
       // CSS-module classes on the <nav>, so this needs no CSS and no client module.
       hideOnScroll: true,
-      title: 'my_extension',
+      title: 'duckfn_open',
       logo: {
-        alt: 'my_extension logo',
+        alt: 'duckfn_open logo',
         src: 'img/logo.svg',
       },
       items: [
@@ -331,7 +296,7 @@ const config: Config = {
       // The copyright line is rendered as HTML, so no angle-bracket placeholder belongs here: `<owner>`
       // would be read as an unclosed element and every page's HTML minification would complain. The
       // extension name is used instead, and `just rename` rewrites it.
-      copyright: `Copyright © ${new Date().getFullYear()} my_extension contributors. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} duckfn_open contributors. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,

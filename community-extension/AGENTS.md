@@ -36,9 +36,15 @@ tag 名**。三者都是合法 git ref、社区仓都能照着 clone，但上游
   （仓库就是 `duckdb/extension-template-rs`，即该模板）用的正是 `build: cargo`。
 - `requires_toolchains: "rust;python3"`：与 `.github/workflows/MainDistributionPipeline.yml` 的
   `extra_toolchains` 一致；`python3` 是 extension-ci-tools 的 configure / 测试流程要的。
-- **不写 `excluded_platforms`**：没有需要排除的平台。两个 musl 平台（`linux_amd64_musl` /
-  `linux_arm64_musl`）在矩阵里都是 `opt_in`，不主动点名就不会构建，所以也不必写进排除列表。
-  真的跑不起来某个平台时（例如依赖在 wasm 上编不过），再回来加。
+- **不写 `excluded_platforms`**：本仓自己的 CI 已经把 wasm 三条架构排除在外
+  （`MainDistributionPipeline.yml` 的 `exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads'`，见根 `AGENTS.md`
+  「排除 wasm 构建」），两个 musl 平台（`linux_amd64_musl` / `linux_arm64_musl`）在矩阵里是 `opt_in`，
+  不主动点名就不会构建 —— 所以这份草稿里暂时没有要排除的平台。**但社区仓的构建跑的是它自己那份矩阵**，
+  不读这里的 `exclude_archs`（依据见 duckfn 文档 `docs/docs/duckdb-versions/wasm-toolchain.md` 的
+  "The community registry build uses its own pins"，里面给的正是这一行
+  `excluded_platforms: "wasm_mvp;wasm_eh;wasm_threads"`）。本扩展的 `open` 在 emscripten 上直接
+  `compile_error!`，那条 wasm job 大概率会红：真红了就在这里补上那行再重跑 PR，不要改依赖去找 wasm 的
+  出路。musl 之类的其它平台同理，跑不起来再回来加。
 - `version`：写**要发布的那一版**，不要 `-dev.N`（开发版本是 `0.1.1-dev.0`，发版流程把它抬成 `0.1.1`）。
   它与 `repo.ref` 配套 —— `ref: v0.1.1` ↔ `version: 0.1.1`，所以社区仓构建出的二进制自称的版本、
   文档页上的版本号、这里的字段三者一致，不存在漂移。`just release_bump` 会顺手改掉这里的 `version`，
@@ -74,7 +80,7 @@ cp target/function_descriptions.csv community-extension/docs/function_descriptio
 
 ```powershell
 $p = 'S:\workspace\my\rust\duckdb\duckdb-community-extensions'
-$ext = 'my_extension'                                # 与 extension.name 逐字一致
+$ext = 'duckfn_open'                                # 与 extension.name 逐字一致
 git -C $p checkout main; git -C $p pull              # 先和 fork 的 main 同步
 git -C $p checkout -b add-$ext                       # 已有同名分支就跳过这步
 

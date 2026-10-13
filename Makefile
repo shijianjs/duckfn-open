@@ -2,7 +2,7 @@
 
 PROJ_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-EXTENSION_NAME=my_extension
+EXTENSION_NAME=duckfn_open
 
 # 置 1 开启 Unstable API：元数据写 `C_STRUCT_UNSTABLE`，产物只能在 TARGET_DUCKDB_VERSION 那个引擎上工作。
 # 本扩展置 **0**：只用 C API 的稳定区（`C_STRUCT`），一份产物因此跨 DuckDB 发行版可用。

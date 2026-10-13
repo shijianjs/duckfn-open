@@ -1,11 +1,10 @@
-/// 原生 crate root：只挂 `mod extension;`，子模块都在 `extension/mod.rs` 下面挂。
+/// Crate root：只挂 `mod extension;`，其余模块都在 `extension/mod.rs` 下面挂。
 ///
-/// 与 wasm_lib.rs 保持同一组 mod，解决官方模板 `mod lib;` 方式在嵌套模块时路径不一致、
-/// 无法嵌套的问题：
-/// error[E0583]: file not found for module functions --> src\lib.rs:3:1
+/// 官方模板在这里写的是 `mod lib;`，再由第二个 crate root 转发一遍；模块一嵌套就会因为两条路径对不上而
+/// 编译失败（`error[E0583]: file not found for module ...`），所以本仓库不保留那份转发。
 ///
-/// The native crate root: it only declares `mod extension;`, and `extension/mod.rs` attaches the
-/// submodules from there. Keeping the same set of `mod`s as `wasm_lib` is what fixes the official
-/// template's `mod lib;` approach, which breaks as soon as modules are nested
-/// (`error[E0583]: file not found for module ...`).
+/// The crate root declares one module, `mod extension;`, and `extension/mod.rs` attaches everything
+/// below it. The official template writes `mod lib;` here and forwards it a second time from another
+/// crate root, which breaks as soon as modules nest (`error[E0583]: file not found for module ...`), so
+/// that second copy is not kept in this repository.
 mod extension;

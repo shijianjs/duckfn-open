@@ -1,21 +1,22 @@
 ---
 title: Installation
 sidebar_position: 2
-description: The three ways to install my_extension — DuckDB's community repository, a GitHub release, or a local build — and how to check that it loaded.
+description: The three ways to install duckfn_open — DuckDB's community repository, a GitHub release, or a local build — and how to check that it loaded.
 ---
 
 # Installation
 
-`my_extension` needs **DuckDB 1.3 or newer**. It is an ordinary loadable extension, so `INSTALL` and
-`LOAD` are all it takes; there is no separate download, library or setup step.
+`duckfn_open` needs **DuckDB 1.3 or newer**. It is an ordinary loadable extension, so `INSTALL` and
+`LOAD` are all it takes; there is no separate download, library or setup step. It runs on a machine with a
+desktop — Windows, Linux or macOS — because that is where a launcher lives.
 
 ## From the community repository
 
 The simplest route, and the only one that needs no flags:
 
 ```sql
-INSTALL my_extension FROM community;
-LOAD my_extension;
+INSTALL duckfn_open FROM community;
+LOAD duckfn_open;
 ```
 
 DuckDB downloads a build that is signed and matched to your DuckDB version and platform. `INSTALL` is a
@@ -32,11 +33,11 @@ local build instead.
 
 ## From a GitHub release
 
-Every version is published as a GitHub Release carrying one `.duckdb_extension` per platform. Load the
-one matching your platform straight from its URL:
+Every version is published as a GitHub Release carrying one `.duckdb_extension` per desktop platform. Load
+the one matching your platform straight from its URL:
 
 ```sql
-LOAD 'https://github.com/<owner>/<repo>/releases/latest/download/my_extension-windows_amd64.duckdb_extension';
+LOAD 'https://github.com/<owner>/<repo>/releases/latest/download/duckfn_open-windows_amd64.duckdb_extension';
 ```
 
 A release file is not signed by DuckDB's distribution key, so DuckDB has to be started with `-unsigned`:
@@ -46,8 +47,9 @@ duckdb -unsigned
 ```
 
 Pick the asset for your platform from the release page — names follow
-`my_extension-<platform>.duckdb_extension` (`windows_amd64`, `linux_amd64`, `osx_arm64`, and so on), plus a
-WebAssembly build for the browser.
+`duckfn_open-<platform>.duckdb_extension` (`windows_amd64`, `linux_amd64`, `osx_arm64`, and so on). Only the
+desktop platforms are published, and only those can load this extension usefully: Windows, Linux and macOS
+each have a launcher to hand a file to, and a WebAssembly build would have none, so there is no such asset.
 
 ## From a local build
 
@@ -55,7 +57,7 @@ If you built the extension from source yourself, point `LOAD` at the artifact �
 with `-unsigned`:
 
 ```sql
-LOAD './build/debug/my_extension.duckdb_extension';
+LOAD './build/debug/duckfn_open.duckdb_extension';
 ```
 
 Building it is the subject of the [Development guide](../development/quick-start.md).
@@ -67,14 +69,14 @@ Building it is the subject of the [Development guide](../development/quick-start
 ```sql
 SELECT extension_name, installed, loaded
 FROM duckdb_extensions()
-WHERE extension_name = 'my_extension';
+WHERE extension_name = 'duckfn_open';
 ```
 
 ```sql
-SELECT function_name, function_type, return_type
+SELECT function_name, len(parameters), return_type
 FROM duckdb_functions()
-WHERE function_name LIKE 'my%';
+WHERE function_name LIKE 'open%';
 ```
 
-Three rows for three functions; if the list is empty, the extension is not loaded in the session you are
-querying.
+Five rows for the three names this extension registers (`open_path` and `open_path_detached` carry two
+signatures each); if the list is empty, the extension is not loaded in the session you are querying.

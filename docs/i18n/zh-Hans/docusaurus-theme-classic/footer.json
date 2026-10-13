@@ -52,7 +52,7 @@
     "description": "The label of footer link with label=DuckDB extensions"
   },
   "copyright": {
-    "message": "Copyright © 2026 my_extension contributors. Built with Docusaurus.",
+    "message": "Copyright © 2026 duckfn_open contributors. Built with Docusaurus.",
     "description": "The footer copyright; keep it free of angle brackets (it is rendered as HTML)"
   }
 }

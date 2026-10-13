@@ -13,13 +13,14 @@ src/extension/mod.rs   ->  duckfn_entrypoint!("duckfn_open");
 src/bin/duckfn.rs      duckfn CLI 入口  ->  #[path] mod extension; + duckfn::cli::run(...)
 
 src/extension/functions/
-    mod.rs                  下面每个文件一行 `mod …;`
+    mod.rs                  下面每个文件一行 `mod …;`，按字母序（这份清单按族类排）
     scalar_open_path.rs     open_path / open_path_detached，各两个签名
     scalar_open_commands.rs open_commands（VARCHAR -> VARCHAR[]，不起任何进程）
     scalar_open_write.rs    open_write      四个签名，只落盘
     scalar_open_content.rs  open_content    四个签名，落盘接着打开
     scalar_open_html.rs     open_html       零配置的 HTML 快捷方式
     scalar_open_print.rs    open_print      两个签名，直接打 stdout
+    scalar_open_filename.rs open_filename / open_filename_check，五个签名，纯字符串
 src/extension/launcher.rs   压在 open 这个 crate 之上的平台层（唯一调用它的文件）
 src/extension/writer.rs     内容 -> 文件 -> 路径：后缀、目录、命名、合法性
 src/extension/types/
@@ -70,6 +71,12 @@ flowchart LR
 | `types/` | 面向 SQL 的类型长什么样 | 做任何校验 |
 
 于是一个名字要多一个参数、一个平台要多一个启动器、一条命名规则要多一个例外，各自只落在一处文件里。
+
+`scalar_open_filename.rs` 是 `functions/` 那一行的例外：它没有进程要起、也没有文件要写，SQL 边界就是
+这件事的全部 —— 它自己直接调
+[`sanitize-filename`](https://crates.io/crates/sanitize-filename)，把那个库的两个入口（改写、判断）原样
+接到 SQL 上。所以它是下面那两层的**兄弟**，而不是任何一层的调用方
+（见下文「纯字符串那一族」）。
 
 ## 平台层：`launcher.rs`
 
@@ -123,6 +130,37 @@ flowchart LR
 
 这一层不起任何进程，也没有任何按目标平台的门控 —— 理由和平台层一样：只有桌面。
 
+## 纯字符串那一族
+
+`scalar_open_filename.rs` 装着 `open_filename`（三个签名）与 `open_filename_check`（两个签名）。它挂在
+`functions/` 底下，却**两层都不调**：不起进程、不写文件，`VARCHAR` 进去，出来的是一条 `VARCHAR` 或一个
+`BOOLEAN`。它真正是的东西 —— 也正是让它成为那两层的兄弟、而不是调用方的那一点 —— 是
+`sanitize-filename` 这个库自己的对外面，原样接到了 SQL 上。
+
+这个库维护的是「一个字符串能不能当文件名」：非法字符 `/ \ ? < > : * | "`、控制字符、整段只是点的名字
+（`.` 和 `..`）、Windows 保留的设备名（`CON`、`PRN`、`AUX`、`NUL`、`COM0-9`、`LPT0-9`，带后缀也算）、
+结尾的点与空格，还有 255 **字节**这一刀。`open_filename` 后面那三个参数就是库里 `Options` 的字段，缺省也
+跟着库走 —— 所以非法字符是被**删掉**的（`replacement` 是空串；想看见改过的地方就给定一个替换符），那一刀
+是开着的。
+
+**只有一处缺省不跟库走：`windows` 钉死成 `true`。** 库里这一项的缺省是*编译时所在的那个平台*，那会让同一条
+SQL 在两台机器上给出两个答案；`true` 是最严的一套，三个平台上同形。要 Unix 那套规则就给这一项传
+`false` —— 在那套规则下 `open_filename('CON.txt', '_', true, false)` 会把名字留着，而
+`open_filename_check('CON.txt')` 仍然是 `false`，因为那一句问的是 Windows。
+
+它们**不是 `open_write` 的助手**，尽管落盘那一族内部用的就是同一个库 —— 策略并不一样：`open_write` 的
+`name` 换成 `_`、从不截断，而 `open_filename` 是删掉、并且截断。两套缺省各写各的文档，谁都不是另一个的
+替身。这个决定就刻在 API 的形状上：`open_filename` **没有三个参数的形式**，因为 `truncate` 与 `windows`
+只能一起给 —— 这是这份 API 里唯一的一处压缩（两个 BOOLEAN 摆在可选位置上是五种组合，其中只有这个库自己
+缺省的那两种值得再给一个更短的形式）；`open_filename_check` 干脆没有 `replacement`，因为一个什么都不改写
+的问题没有「换成什么」这一项。它回 `true` 的充要条件，是在同样的开关下 `open_filename` 会把拿到的值原样
+还回来 —— 正因如此 `WHERE NOT open_filename_check(name)` 是一次体检，而不是一次悄悄改写。任何一个参数是
+`NULL`，这一行就是 `NULL`。
+
+还有一处刻意的**不给**：`open_write` 内部那条自动命名的 `part` 规则（空格并成 `_`、最长 48 个字符）没有
+注册成 SQL 名字。那是本扩展自己的约定，不是那个库的规则，给它一个名字等于暗示调用方可以在写盘之外照着它
+依赖。
+
 ## 面向 SQL 的类型：`types/`
 
 `extension/types/` 放的是出现在 SQL 里、而不是出现在某个 Rust 调用里的类型。目前有一个：
@@ -149,6 +187,10 @@ pub(crate) struct OpenWriteOptions {
 `DuckLazy` 参数要解析的那个配置类型。可见性按「谁读它」放宽一档 —— 这里是 `pub(crate)`，因为
 `functions` 子树要读它。
 
+还有一样是刻意**不**放进来的：`open_filename` / `open_filename_check` 不注册任何类型，所以
+`duckdb_types()` 里查不出新东西。它们的选项是两个只有成对才有意义的 BOOLEAN —— 那是一份参数列表，不是一个
+值得注册成 SQL 类型的形状（见下文「纯字符串那一族」）。
+
 ## 命令行工具
 
 `src/bin/duckfn.rs` 用 `#[path = "../extension/mod.rs"] mod extension;` 把扩展再编一遍，然后调用
@@ -162,7 +204,8 @@ pub(crate) struct OpenWriteOptions {
 
 `functions/` 下的文件名是「哪一类 + 做什么」：`scalar_open_path.rs` 装着两个启动器名字（四个签名，因为
 每个名字各有 `(path)` 与 `(path, app)` 两个形式），`scalar_open_write.rs` 装着 `open_write` 的四个签名，
-`scalar_open_commands.rs` 装着那个只读预览。某个功能长大之后再像 duckfn 示例那样拆成子目录
+`scalar_open_commands.rs` 装着那个只读预览，`scalar_open_filename.rs` 装着那两个纯字符串名字（五个签名），
+两层都不碰。某个功能长大之后再像 duckfn 示例那样拆成子目录
 （`functions/<功能>/mod.rs` + 各司其职的文件）。
 
 每个注册进 SQL 的名字都带同一个短前缀（这里是 `open_`）；理由在 `AGENTS.md`：社区扩展几乎都不把包名
@@ -189,9 +232,11 @@ pub(crate) struct OpenWriteOptions {
   feature 开的是 `shellexecute-on-windows`（`_detached` 那一组与 `open_default_checked` 因此走一次
   `ShellExecuteW`）；不开 `insecure`，它把路径拼进命令行，正是要躲开的注入面。
 - **[sanitize-filename](https://crates.io/crates/sanitize-filename)** —— 文件名的**合法性**：非法字符
-  `/ \ ? < > : * | "`、控制字符、Windows 保留设备名（`CON`、`NUL`、`COM1`…）与结尾的点与空格。规则由它维护，
-  我们只说「替换成 `_`」。只有 `writer.rs` 调它，而且写死两个选项：`windows: true`（它最严，于是一套规则在
-  三个平台都成立）、`truncate: false`（它按 255 **字节**截断，太宽松；长度这事由我们自己按字符数管）。
+  `/ \ ? < > : * | "`、控制字符、Windows 保留设备名（`CON`、`NUL`、`COM1`…）与结尾的点与空格。规则归它管，
+  我们说的是策略，而这里有两**套**策略。`writer.rs` 换成 `_`、不截断（它按 255 **字节**截一刀，太宽松；长度
+  这事由我们自己按字符数管），并且把 `windows: true` 写死，于是一套规则在三个平台都成立。
+  `scalar_open_filename.rs` 则是把这个库自己的对外面交给 SQL —— 缺省照库走（删掉而不是替换、那一刀开着），
+  只有 `windows` 同样钉死；它明确**不是** `open_write` 的助手（见下文「纯字符串那一族」）。
 - **[tempfile](https://crates.io/crates/tempfile)** —— 自动名字的随机尾缀、撞名时的重试，以及「这个名字当时
   确实是空的」这个保证；`writer.rs` 自己测试用的临时目录也是它的事。另一条路是「自己拼一个随机数再去
   `Path::exists` 轮询」，那会留下 TOCTOU 的窗口，随机源还得自己找。

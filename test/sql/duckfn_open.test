@@ -23,10 +23,15 @@ SELECT open_print('report');
 ----
 Scalar Function with name open_print does not exist
 
+statement error
+SELECT open_filename('report:q3');
+----
+Scalar Function with name open_filename does not exist
+
 # require 之后扩展就位（测试框架按 --external-extension 加载本地产物）
 require duckfn_open
 
-# 七个 SQL 名字、十六个签名，全在这个扩展的前缀下；不真调用（会 launch 的那些一步都不碰），只认 catalog
+# 九个 SQL 名字、二十一个签名，全在这个扩展的前缀下；不真调用（会 launch 的那些一步都不碰），只认 catalog
 query T
 SELECT string_agg(function_name, ',')
 FROM (
@@ -36,16 +41,16 @@ FROM (
     ORDER BY function_name
 );
 ----
-open_commands,open_content,open_html,open_path,open_path_detached,open_print,open_write
+open_commands,open_content,open_filename,open_filename_check,open_html,open_path,open_path_detached,open_print,open_write
 
 # 签名总数：open_commands 1 + open_path 2 + open_path_detached 2 + open_write 4 + open_content 4 +
-# open_html 1 + open_print 2
+# open_html 1 + open_print 2 + open_filename 3 + open_filename_check 2
 query I
 SELECT count(*)
 FROM duckdb_functions()
 WHERE function_name LIKE 'open_%';
 ----
-16
+21
 
 # 只读预览在本机确实跑通了（这一步不起任何进程）
 query T

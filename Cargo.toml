@@ -146,12 +146,17 @@ open = { version = "5.4", features = ["shellexecute-on-windows"] }
 # sanitize-filename：文件名的**合法性**（非法字符 `/ \ ? < > : * | "`、控制字符、Windows 保留设备名
 # `CON`/`NUL`/`COM1`…、结尾的点与空格）按 Node 同名库的规则由它维护，我们只说「替换成什么」。
 # dir / name / part 三个用户可填的字段都要过它（见 writer.rs），一处规则、三处生效。
+# 它自己的两个入口（改写 / 判断）也直接接到 SQL 上：open_filename 与 open_filename_check，
+# 缺省跟库走，只有 windows 钉成 true（见 scalar_open_filename.rs）—— 那是给查询里的名字用的，不是落盘的助手。
 #
 # sanitize-filename: the **legality** of a file name (illegal characters `/ \ ? < > : * | "`, control
 # characters, Windows reserved device names `CON`/`NUL`/`COM1`…, trailing dots and spaces) is
 # maintained here, following the rules of the Node library of the same name; all we say is what to
 # substitute. All three caller-supplied fields (dir / name / part) go through it (see writer.rs), so
-# one set of rules covers them all.
+# one set of rules covers them all. The crate's own two entry points (rewrite / test) are also wired
+# straight into SQL as open_filename and open_filename_check, with the crate's defaults and only
+# `windows` pinned to true (see scalar_open_filename.rs) — those serve names held by a query, they are
+# not helpers of the write path.
 sanitize-filename = "0.6"
 
 # tempfile：**随机尾缀与撞名重试**，以及「这个文件名当时确实是空的」这个保证。自动命名（用户没给

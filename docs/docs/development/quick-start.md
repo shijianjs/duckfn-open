@@ -49,8 +49,8 @@ What is left once the name is consistent everywhere:
 1. **`AGENTS.md`** — fill in the `{{PROJECT_GOAL}}` placeholder, and set the function-name prefix in the
    naming convention to your own (the prefix here is `open_`).
 2. **The template's sample functions and `test/sql/*.test`** — replace them with your API; see [writing
-   functions](./writing-functions.md) and [testing](./testing.md). This repository has already done that: six
-   function files under `src/extension/functions/` covering seven SQL names, the platform layer in
+   functions](./writing-functions.md) and [testing](./testing.md). This repository has already done that: seven
+   function files under `src/extension/functions/` covering nine SQL names, the platform layer in
    `src/extension/launcher.rs`, the persistence layer in `src/extension/writer.rs`, the options STRUCT in
    `src/extension/types/open_write_options.rs`, and one `.test` per function file under `test/sql/` plus a
    smoke test.
@@ -93,8 +93,8 @@ WHERE starts_with(function_name, 'open_')
 ORDER BY function_name, args;
 ```
 
-Seven SQL names, sixteen signatures, and every one of them is a scalar function — no aggregate, no table
-function. Five names carry more than one signature under a single SQL name, merged with `overloads_name`,
+Nine SQL names, twenty-one signatures, and every one of them is a scalar function — no aggregate, no table
+function. Seven names carry more than one signature under a single SQL name, merged with `overloads_name`,
 which is why the signature count outruns the name count:
 
 ```text
@@ -106,6 +106,10 @@ open_write(content|blob, ext)      open_write(content|blob, ext, opts)
 open_content(content|blob, ext)    open_content(content|blob, ext, opts)
 open_html(content)
 open_print(text)                   open_print(text, tail)
+
+open_filename(value)               open_filename(value, replacement)
+                                   open_filename(value, replacement, truncate, windows)
+open_filename_check(value)         open_filename_check(value, truncate, windows)
 ```
 
 The one type it registers is the options argument of the write family:
@@ -118,7 +122,9 @@ WHERE starts_with(type_name, 'open_');
 
 That is `open_write_options(dir VARCHAR, "name" VARCHAR, part VARCHAR)` — `name` carries quotes because NAME
 is a keyword in DuckDB's grammar. Both the signatures and the type are declared in Rust; see [writing
-functions](./writing-functions.md).
+functions](./writing-functions.md). The filename pair registers no type alongside them: its arguments are
+plain `VARCHAR` and `BOOLEAN`, which is worth asserting once in a test, because a Rust argument name is not a
+SQL type.
 
 A call that starts no process gives the same answer everywhere, which is why `NULL` is the portable demo:
 
@@ -142,6 +148,26 @@ SELECT open_write('report body', 'md', {'dir':'./out', 'name':'report', 'part':N
 SELECT open_print('row ' || x) FROM range(3) t(x);  -- three lines on the console, three NULLs in SQL
 ```
 
+The filename pair asks for even less — one string in, a string or a `BOOLEAN` out, no desktop and no file
+system — so it is the one family whose every answer can be asserted verbatim. Its rules and defaults are
+[`sanitize-filename`](https://crates.io/crates/sanitize-filename)'s own (illegal characters, control
+characters, all-dot names, the Windows reserved device names, trailing dots and spaces, a cut at 255 **bytes**),
+with one pinned exception: `windows` is `true` whatever the host is, because the crate takes the compiling
+platform and one query must answer the same way on every machine. It is *not* a helper of the write family,
+which uses the same crate under a different policy.
+
+```sql
+SELECT open_filename('quarterly/report:v2.csv');    -- 'quarterlyreportv2.csv': the defaults delete, they do not substitute
+SELECT open_filename('a/b:c?.txt', '_');            -- 'a_b_c_.txt': pass a replacement to see where it edited
+SELECT open_filename_check('CON.txt');              -- false: a Windows reserved device name
+SELECT count(*) FROM (VALUES ('a.txt'), ('b/c.txt')) t(name)
+WHERE NOT open_filename_check(name);                -- 1: how many names would be touched, changed by nothing
+```
+
+`open_filename` has no three-argument form: `truncate` and `windows` only come as a pair, so
+`open_filename(x, '_', true)` is a binder error. That gap is the one compression in this API and it is
+deliberate — the reason is in `src/extension/functions/scalar_open_filename.rs`.
+
 What an actual launch answers depends on this machine's desktop: which launchers are installed, and what
 `.html` is associated with. There is no second place to run it — this extension builds for desktop targets
 only, see [build and release](./build-and-release.md).
@@ -151,7 +177,8 @@ SELECT open_path('report.html');                    -- default program, waits fo
 SELECT open_path('https://duckdb.org', 'firefox');  -- a program of your choosing
 SELECT open_path_detached('report.html');           -- returns as soon as the launcher started
 SELECT open_commands('report.html');                -- the candidate commands, running none
-SELECT open_content(svg, 'svg', {'dir':'./out', 'name':NULL, 'part':'chart'});
+SELECT open_content('<svg xmlns="http://www.w3.org/2000/svg"/>', 'svg',
+                    {'dir':'./out', 'name':NULL, 'part':'chart'});
                                                     -- write it out, then open it with the default program
 SELECT open_html('<h1>hello</h1>');                 -- the same with nothing to configure: .html, browser
 ```
@@ -168,10 +195,11 @@ just sql "SELECT open_path(NULL)"
 just test           # make configure + make debug + make test, then a cleanup of what the tests wrote
 ```
 
-Seven files under `test/sql/`, and two of them really execute: `open_write.test` writes files and reads them
-back, `open_print.test` writes to stdout. The files land under `test/sql/` (`named/`, `blob/`, `unique/` …),
-git-ignored and swept away by that cleanup step. [Testing](./testing.md) covers that, the faster loop, and
-what a new function should cover.
+Eight files under `test/sql/`, and three of them really execute: `open_write.test` writes files and reads them
+back, `open_print.test` writes to stdout, `open_filename.test` asserts whole rewrites on the strings it gets
+back — no process, no file system, so nothing there depends on the machine. The files land under `test/sql/`
+(`named/`, `blob/`, `unique/` …), git-ignored and swept away by that cleanup step.
+[Testing](./testing.md) covers that, the faster loop, and what a new function should cover.
 
 ## Traps
 

@@ -78,8 +78,9 @@ FROM duckdb_functions()
 WHERE function_name LIKE 'open%';
 ```
 
-Sixteen rows for the seven names this extension registers (`open_write` and `open_content` carry four
-signatures each — text and binary, with and without options; `open_path`, `open_path_detached` and
-`open_print` carry two each; `open_commands` and `open_html` one). The options STRUCT the write signatures
-take is a registered type rather than a function, so it shows up in `duckdb_types()`, not here. If the list
-is empty, the extension is not loaded in the session you are querying.
+Twenty-one rows for the nine names this extension registers (`open_write` and `open_content` carry four
+signatures each — text and binary, with and without options; `open_path`, `open_path_detached`,
+`open_print` and `open_filename_check` carry two each; `open_filename` carries three; `open_commands` and
+`open_html` one). The options STRUCT the write signatures take is a registered type rather than a
+function, so it shows up in `duckdb_types()`, not here. If the list is empty, the extension is not loaded
+in the session you are querying.

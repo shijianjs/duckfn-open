@@ -34,6 +34,11 @@ locale 的输出（英文 `/<repo>/data/x.tsv`、中文 `/<repo>/zh-Hans/data/x.
 按同样的相对路径改另一边**：`id` / `slug` / `sidebar_position` 保持一致，页内链接用相对
 文件路径，代码块里的 SQL 是代码、照抄，只翻注释。
 
+**标题里不要写 `{#自定义-id}`**：这份站点没有给 `.md` 启用 heading id 语法，MDX 会把 `{…}` 当成表达式
+解析，`just docs_build` 直接失败（散文标题后面还跟行内代码时尤其容易撞上）。页内互链因此只有一种可靠的
+写法 —— 链到**代码名标题**（`## open_path`、`## open_write_options` 这类），它的 slug 在中英两侧完全一样。
+中文页要指回本文某个散文小节时，就写「见下文「小节名」」这种纯文字，不要造锚点。
+
 ## 验证
 
 改完跑 `npm run build`（`just docs_build`）：`onBrokenLinks` 是 `throw`，中英文两侧的链接与锚点都要

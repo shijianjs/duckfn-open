@@ -75,7 +75,7 @@ FROM duckdb_functions()
 WHERE function_name LIKE 'open%';
 ```
 
-这个扩展注册七个名字，对应十六行（`open_write` 与 `open_content` 各四个签名 —— 文本与二进制 × 带选项与
-不带选项；`open_path`、`open_path_detached`、`open_print` 各两个；`open_commands` 与 `open_html` 各一个）。
-落盘签名要传的那个选项 STRUCT 是注册的类型而不是函数，所以它出现在 `duckdb_types()` 里，不在这里。如果
-一行都没有，说明你查的这个会话里没有加载这个扩展。
+这个扩展注册九个名字，对应二十一行（`open_write` 与 `open_content` 各四个签名 —— 文本与二进制 × 带选项与
+不带选项；`open_path`、`open_path_detached`、`open_print` 与 `open_filename_check` 各两个；`open_filename`
+三个；`open_commands` 与 `open_html` 各一个）。落盘签名要传的那个选项 STRUCT 是注册的类型而不是函数，所以
+它出现在 `duckdb_types()` 里，不在这里。如果一行都没有，说明你查的这个会话里没有加载这个扩展。

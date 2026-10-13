@@ -14,6 +14,7 @@
 // using `open::` directly.
 mod scalar_open_commands;
 mod scalar_open_content;
+mod scalar_open_filename;
 mod scalar_open_html;
 mod scalar_open_path;
 mod scalar_open_print;

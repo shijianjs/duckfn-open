@@ -6,13 +6,13 @@ description: Every SQL function duckfn_open registers, with examples to run in y
 
 # Functions
 
-Loading the extension registers seven function names and sixteen signatures, and every one of them is a
+Loading the extension registers nine function names and twenty-one signatures, and every one of them is a
 scalar function: there is no aggregate function and no table function here. It also registers one STRUCT
 type, [`open_write_options`](#the-write-options) — that is where the optional arguments of the write
-family live. The functions behave like DuckDB's own: use them in a projection or a `WHERE` clause, and
-they combine with built-in functions freely.
+family live; the two new names register no type of their own. The functions behave like DuckDB's own: use
+them in a projection or a `WHERE` clause, and they combine with built-in functions freely.
 
-The names fall into two groups. The first takes a path or URL that already exists and hands it to the
+The names fall into three groups. The first takes a path or URL that already exists and hands it to the
 desktop:
 
 | Function | Kind | Signature | Summary |
@@ -37,22 +37,33 @@ query produces: a report, a chart, a page that has no file yet.
 | [`open_print`](#open_print) | scalar | `VARCHAR -> VARCHAR` | Writes to stdout, past the result set's formatting. Always returns NULL. |
 | [`open_print`](#open_print) | scalar | `VARCHAR, VARCHAR -> VARCHAR` | The same, with what to append after the text instead of a newline. |
 
+The third group touches neither the desktop nor the filesystem. It is pure string work, and what it
+maintains is whether a value can be used as a **file name** at all:
+
+| Function | Kind | Signature | Summary |
+| --- | --- | --- | --- |
+| [`open_filename`](#open_filename) | scalar | `VARCHAR -> VARCHAR` | Rewrites a string into something usable as a file name. |
+| [`open_filename`](#open_filename) | scalar | `VARCHAR, VARCHAR -> VARCHAR` | The same, with what to substitute for each illegal character instead of deleting it. |
+| [`open_filename`](#open_filename) | scalar | `VARCHAR, VARCHAR, BOOLEAN, BOOLEAN -> VARCHAR` | The same, plus the two switches: the 255-byte cut and the Windows rules. |
+| [`open_filename_check`](#open_filename_check) | scalar | `VARCHAR -> BOOLEAN` | Rewrites nothing: is this string already a usable name? |
+| [`open_filename_check`](#open_filename_check) | scalar | `VARCHAR, BOOLEAN, BOOLEAN -> BOOLEAN` | The same question, with the two switches. |
+
 The block below is the whole API as DuckDB sees it, once the extension is loaded:
 
 ```sql
 SELECT function_name, len(parameters), return_type
 FROM duckdb_functions()
 WHERE function_name LIKE 'open%'
-ORDER BY 1, 2;    -- seven names, sixteen signatures
+ORDER BY 1, 2;    -- nine names, twenty-one signatures
 ```
 
-Five of the names carry more than one signature under a single SQL name, so none of the extra forms has a
+Seven of the names carry more than one signature under a single SQL name, so none of the extra forms has a
 SQL name of its own: the calls are `SELECT open_path('a', 'b')` and
 `SELECT open_write(html, 'html', opts)`, not `open_path_with('a', 'b')` or `open_write_with(…)`.
 
 ## What one call answers
 
-The two groups answer differently, and each of those is a small contract of its own.
+The three groups answer differently, and each of those is a small contract of its own.
 
 **The launch family** (`open_path`, `open_path_detached`) distinguishes three outcomes:
 
@@ -91,6 +102,13 @@ SELECT open_content(svg, 'svg');
 ```
 
 **`open_print`** returns NULL always: the text went to stdout, and SQL has nothing left to say.
+
+**The filename family** answers with the value itself — a rewritten string, or `true`/`false` about the
+string it was given. It starts no process and writes no file, so no machine can be too bare for it, and
+**an unusable name is not an error**: `open_filename('CON.txt')` answers `''`, because a rewrite that
+leaves nothing behind is a legal answer rather than a rejected argument. What is an error here is the same
+thing it is everywhere else in this extension — the wrong argument count or the wrong argument type, caught
+while the query is being bound.
 
 ## open_path
 
@@ -318,6 +336,88 @@ around: when the argument is a constant, DuckDB folds the call into a single eva
 `SELECT open_print('x') FROM t` prints one line however many rows `t` has. Reference a column
 (`open_print('x: ' || a)`) to get one line per row.
 
+## open_filename
+
+```text
+open_filename(value VARCHAR) -> VARCHAR
+open_filename(value VARCHAR, replacement VARCHAR) -> VARCHAR
+open_filename(value VARCHAR, replacement VARCHAR, truncate BOOLEAN, windows BOOLEAN) -> VARCHAR
+```
+
+Rewrites a string into something usable as a file name. Nothing else happens — no process, no file, no
+directory: the value goes in, a value comes out. What the rules cover is everything that makes a string
+unusable as a name: the illegal characters `/ \ ? < > : * | "`, the control characters, a name made only of
+dots (`.` and `..`), the Windows reserved device names (`CON`, `PRN`, `AUX`, `NUL`, `COM0`–`COM9`,
+`LPT0`–`LPT9`, and those names with a suffix on them), trailing dots and spaces, and the 255-**byte** cut.
+
+A query wants this because its file names usually come from the data itself — a customer name, a report
+title, the `path` column that was crawled in. Turning a value into a legal name is what makes the
+directory, the URL and the next extension composable.
+
+```sql
+SELECT open_filename('quarterly/report:v2.csv');   -- 'quarterlyreportv2.csv'
+SELECT open_filename('  the report.  ');           -- '  the report' — the tail goes, the head stays
+SELECT open_filename('CON.txt');                   -- '' — a reserved device name is not a name
+SELECT open_filename('..');                        -- ''
+```
+
+The defaults are that library's own, with **one deliberate exception**. `replacement` is the empty string,
+so illegal characters are **deleted**, not substituted; `truncate` is on. `windows`, though, is **pinned to
+`true` whatever the host platform is**: its default in the library is the platform it was compiled for, and
+that would let one and the same SQL statement answer differently on different machines. Pass `false` there
+for the Unix rules — under which `CON.txt` is just a file name:
+
+```sql
+SELECT open_filename('a/b:c?.txt', '_');    -- 'a_b_c_.txt' — the substitution shows where it edited
+SELECT open_filename('sales|east', '-');    -- 'sales-east'; any string works, including ''
+SELECT open_filename('CON.txt', '_', true, false);   -- 'CON.txt'
+SELECT length(open_filename(repeat('a', 300)));                 -- 255
+SELECT length(open_filename(repeat('a', 300), '_', false, true));  -- 300
+```
+
+The substitution is only about display: `'_'` keeps the shape of the name readable, `''` (the default, or
+written out) is the same rewrite with the holes closed.
+
+**`truncate` and `windows` can only be given together**, as the third and fourth arguments of the four
+argument form; there is deliberately **no three-argument form**, so `open_filename('a.txt', '_', true)` is
+a binder error. This is the one compression in the API rather than a missing case: two BOOLEANs in optional
+positions are five combinations, and of those only the two the library defaults to deserve a shorter form.
+
+NULL in **any** argument makes that row NULL. There is nothing to guess a missing option from — a truncated
+name and a name that was never asked about are different things.
+
+These are not helpers of [`open_write`](#open_write). That family's own naming policy is a second set of
+defaults living inside the writer — `name` substitutes `_` and never truncates, `part` collapses spaces to
+`_` and caps at 48 characters — and it was never a SQL name of its own. Neither set is a stand-in for the
+other.
+
+## open_filename_check
+
+```text
+open_filename_check(value VARCHAR) -> BOOLEAN
+open_filename_check(value VARCHAR, truncate BOOLEAN, windows BOOLEAN) -> BOOLEAN
+```
+
+The half that rewrites nothing: `true` means `open_filename` with the same switches would hand back exactly
+the value it was given.
+
+```sql
+SELECT open_filename_check('report.csv');   -- true
+SELECT open_filename_check('a/b.txt');      -- false
+SELECT open_filename_check('CON.txt');      -- false
+SELECT open_filename_check('trail. ');      -- false
+SELECT count(*) FROM files WHERE NOT open_filename_check(name);   -- how many would be touched
+```
+
+That last line is the reason the pair exists: a query can count what a rewrite would move without moving
+any of it, which is the audit and filter step before anyone decides what to do about the data.
+
+There is no `replacement` argument here, because a question that rewrites nothing has nothing to
+substitute. Everything else carries over from [`open_filename`](#open_filename): the same two switches, only
+available together (so the options form takes three arguments, not two); `windows` pinned to `true`, so
+`open_filename_check('CON.txt')` is `false` even on Linux, where nothing reserves that name —
+`open_filename_check('CON.txt', true, false)` answers `true`; and NULL in any argument, NULL out.
+
 ## Errors
 
 An empty path or an empty program name is an error, not a `false` — a typo and an unopenable file deserve
@@ -340,16 +440,27 @@ SELECT open_content('a', 'txt', {'dir':'./out', 'name':'/', 'part':NULL});
 
 The second argument of `open_path` has its own message (`… the application must not be empty`), and the
 argument count and types are checked while the query is being bound: `open_path()`,
-`open_path('a', 'b', 'c')` and `open_path(42)` all fail before anything runs.
+`open_path('a', 'b', 'c')` and `open_path(42)` all fail before anything runs. The filename family is bound
+the same way and has one shape to trip over — the three-argument call that does not exist:
+
+```sql
+SELECT open_filename('a.txt', '_', true);          -- Binder Error: truncate and windows are a pair
+SELECT open_filename_check('a.txt', true);         -- Binder Error: the options form takes three arguments
+```
+
+Nothing in `open_filename` / `open_filename_check` is an error about the *value*: an illegal character, a
+reserved device name, a 300-character title all get an answer, not a message.
 
 ## Notes
 
 - **A desktop has to be behind a launch.** The launcher is desktop software, so on a machine that has none
   — a server, a CI runner — the four `open_path` actions answer `false`, `open_content` and `open_html`
   raise an error carrying the path they did write, and `open_commands` is the one call that still answers,
-  listing what would be tried there. `open_write` and `open_print` need no desktop at all.
+  listing what would be tried there. `open_write`, `open_print` and the filename family need no desktop at
+  all.
 - **NULL in, NULL out — and nothing started, nothing written.** That is what makes the outcomes readable:
-  NULL is a row with no input.
+  NULL is a row with no input. For `open_filename` and `open_filename_check` it means NULL in **any**
+  argument, the switches included.
 - **A rejected input fails the statement.** The error names the function, and the rest of the query is not
   evaluated.
 - **Constants are folded into one execution.** `SELECT open_path('report.html')` runs once. As soon as the
@@ -359,3 +470,7 @@ argument count and types are checked while the query is being bound: `open_path(
 - **The list is printed with its type.** `open_commands` returns `VARCHAR[]`, so its elements keep the
   quoting they are launched with; index into it (`open_commands('report.html')[1]`) or `unnest` it when you
   want one command per row.
+- **The filename family answers the same way on every machine.** Nothing in `open_filename` or
+  `open_filename_check` depends on the filesystem, on a desktop, or on what a window happened to do, so a
+  rewritten name is verbatim checkable in a test — which is also why `windows` is pinned to `true` instead
+  of defaulting to the host platform.

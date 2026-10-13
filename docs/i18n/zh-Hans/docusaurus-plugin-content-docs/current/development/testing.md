@@ -8,17 +8,18 @@ description: test/sql 下的 SQLLogicTest 用例、怎么跑（make、just 或�
 
 测试用 [SQLLogicTest](https://duckdb.org/dev/sqllogictest/intro) 格式写在 `test/sql/` 下，与 DuckDB
 自己的测试套件同一种格式。一个文件就是一串 `query` / `statement` 块，期望结果写在原地，所以用例同时也是
-函数行为的可运行示例。一共七份：`src/extension/functions/` 下每个函数文件一份，再加一份冒烟测试。
+函数行为的可运行示例。一共八份：`src/extension/functions/` 下每个函数文件一份，再加一份冒烟测试。
 
 | 文件 | 覆盖什么 |
 | --- | --- |
-| `duckfn_open.test` | 冒烟测试。`LOAD` 之前，四个名字（`open_path`、`open_commands`、`open_write`、`open_print`）都是 `does not exist`；`require` 之后把目录读两遍 —— 七个 `open_` 名字按顺序并成一串，以及 `count(*)` 出来的十六个签名。接着对测试目录里真实存在的那个文件跑一次 `open_commands`（它不起进程），以及 `SELECT open_path(NULL)` 是 `NULL`。它也是「扩展能被加载」的最小证明。 |
+| `duckfn_open.test` | 冒烟测试。`LOAD` 之前，五个名字（`open_path`、`open_commands`、`open_write`、`open_print`、`open_filename`）都是 `does not exist`；`require` 之后把目录读两遍 —— 九个 `open_` 名字按顺序并成一串，以及 `count(*)` 出来的二十一个签名。接着对测试目录里真实存在的那个文件跑一次 `open_commands`（它不起进程），以及 `SELECT open_path(NULL)` 是 `NULL`。它也是「扩展能被加载」的最小证明。 |
 | `open_path.test` | 两个启动器名字作为函数集的样子：从目录里读出的注册形状（arity 1 与 2，返回 `BOOLEAN`）、常量 **和** 运行期的 `NULL` 都被短路（所以永远叫不起启动器）、四条空参数报错文案、参数个数/类型的 binder 报错，外加一条「Rust 那边的分支名（`open_path_with`、`open_path_detached_with`）没有多注册成 SQL 函数」的断言。 |
 | `open_commands.test` | 只读那条预览，也就是在哪台机器上都能真跑的启动答案：`VARCHAR[]` 既从目录里读、也从 `typeof` 验一遍、候选序列非空、至少有一个候选把路径带在参数里、两处 `NULL` 短路、空路径报错、多给一个参数和给数字时的 binder 报错，以及跨多个 DataChunk 的 3000 行。 |
-| `open_write.test` | **真的执行**：它不起任何进程，所以每一步在没有桌面的机器上都能断言。一个名字四个签名（arity 2 与 3，其中恰好两个收 `BLOB`，返回类型都是 `VARCHAR`）；显式给的 `dir` + `name` 原样拼成那条路径，内容再用 `read_text` 读回来；覆盖语义 —— 第二次只写一个短 body，文件就是短的；不存在的目录一直建到 `nested/a/b`；自动生成的名字用 `regexp_matches` 对 `open-<8 位>-<6 位>-<part>-<随机>.<ext>` 这个形状，带 `part` 与不带各验一次；PNG 的魔数从一个 `BLOB` 走进去、再用 `read_blob` + `hex` 读回来；四条选项校验报错；被清洗过的 `name` 逃不出给定目录；三处 `NULL` 短路（内容、后缀，以及整个 `NULL` 的选项 STRUCT —— 它**不是**「其余项按缺省走」）；最后是不省略第 3 个参数的那条：文件真的落在系统临时目录里，也读回来验了一次。 |
+| `open_write.test` | **真的执行**：它不起任何进程，所以每一步在没有桌面的机器上都能断言。一个名字四个签名（arity 2 与 3，其中恰好两个收 `BLOB`，返回类型都是 `VARCHAR`）；显式给的 `dir` + `name` 原样拼成那条路径，内容再用 `read_text` 读回来；覆盖语义 —— 第二次只写一个短 body，文件就是短的；不存在的目录一直建到 `nested/a/b`；自动生成的名字用 `regexp_matches` 对 `open-<8 位>-<6 位>-<part>-<随机>.<ext>` 这个形状，带 `part` 与不带各验一次；PNG 的魔数从一个 `BLOB` 走进去、再用 `read_blob` + `hex` 读回来；四条选项校验报错；被清洗过的 `name` 逃不出给定目录；三处 `NULL` 短路（内容、后缀，以及整个 `NULL` 的选项 STRUCT —— 它**不是**「其余项按缺省走」）；最后是**省略**第 3 个参数的那条：文件真的落在系统临时目录里，也读回来验了一次。 |
 | `open_content.test` | 只有形状与 launch 之前的校验 —— **这里的调用一次都到不了 launch**。四个签名与那唯一的 `VARCHAR` 返回类型；同样几条 writer 报错，前缀换成 `open_content:`；`NULL` 短路（常量与运行期）；多给第四个参数时的 binder 报错。有一条断言证明了它失败得早：名字不可用那条报错之后，对那个目录 `glob()` 数出来是 0 个文件 —— 什么都没写，也就没什么能被打开。 |
 | `open_html.test` | 那个零配置的快捷方式，同样因为这理由一次都没被真调用：一个名字、一个签名，进 `VARCHAR` 出 `VARCHAR`，而且没有 `BLOB` 签名（数出来是 0）；给两个参数、不给参数、给数字时的 binder 报错；两种 `NULL` 短路。文件末尾记下了一条不给测试跑的说明：空串**是**有内容的（它会落盘并把浏览器叫起来），所以那一条留给人工验证。 |
 | `open_print.test` | **真的执行**：不起进程、不碰文件系统，只往 stdout 写，而那些字落在运行器自己的控制台里、从不进结果集 —— 所以断言全都盯着 SQL 的结论，也就是恒为 `NULL`。两个 arity 与它们的返回类型；空串；`tail` 给 `''` 与给两个换行各一次；三行确实打了三次，因为参数引用了列（常量参数会被折叠成一次调用，那种写法什么也证明不了）；两处 `NULL` 短路；三条 binder 报错；以及没有泄漏出 `open_print_with_tail`。 |
+| `open_filename.test` | **真的执行**：纯字符串这一族不起进程、不碰文件系统，答复又不依赖这台机器，所以它是唯一一份能把库自己的那六条规则在每一条返回的字符串上逐字对一遍、而不必退回去验形状的用例。六条规则各自一条断言：非法字符与控制字符被删掉、`.` 与 `..` 清空、Windows 的保留设备名连后缀一起把整个名字吞掉（`CON.txt` → `''`）、结尾的点与空格去掉而开头的不动、255 **字节**这一刀开着与关掉各验一次。再加上三个开关（`replacement` 给 `''`、`'_'`、`'-'`，以及两个字符的 `'__'`；`windows` = `false` 时 `CON.txt` 留着）；两个名字的注册形状（arity 1/2/4 → `VARCHAR`，1/3 → `BOOLEAN`，每个 arity 的 `parameter_types` 也读一遍）；**缺的那一档三个参数**被断言成 binder 报错，好让没人把这一处缺口当成漏写；一条证明判断与改写同源的交叉检查 —— 十一个值 × `truncate` × `windows` 的全部组合里，`open_filename_check(n, tr, w)` 与 `open_filename(n, '', tr, w) = n` 不一致的是 0 行；三行里两行真的需要改写（不是常量折叠）；五处 `NULL` 短路，外加一整列里混着一行 `NULL`；五条 binder 报错；以及那三个 Rust 分支名（`open_filename_with_replacement`、`open_filename_with_options`、`open_filename_check_with_options`）没有多注册成 SQL 函数。 |
 
 这些文件围着一条规则写：**只断言没有桌面也答得出的东西。** 会走到桌面的那四个名字 —— `open_path`、
 `open_path_detached`、`open_content`、`open_html` —— 在整个测试套件里一次都没被真拿去 launch。一次 launch
@@ -26,7 +27,8 @@ description: test/sql 下的 SQLLogicTest 用例、怎么跑（make、just 或�
 每个动作只能回 `false`。所以这组名字是靠目录、靠 `NULL`、靠 binder 拦下什么来验的；`open_content` 与
 `open_html` 还要靠那些**早于**落盘与 launch 就返回的校验错误 —— 在那里就失败的调用同样一个进程都不会起，
 所以在哪台机器上都成立。真正跑起来的那些都不起进程：`open_commands` 只列命令不执行，`open_write` 写文件
-再把内容读回来，`open_print` 往控制台写。
+再把内容读回来，`open_print` 往控制台写，`open_filename` 只凭手里那串字符就答得出来 —— 这台机器的任何差别
+都插不进它，所以它的用例是唯一一份把改写规则本身逐条对一遍、而不必退回去验形状的文件。
 
 ## 怎么跑
 
@@ -51,8 +53,8 @@ just ci-build             # 只做官方构建，不跑测试
   —— 跑的都是上一次构建出来的产物，所以先构建（`just ci-build` 或 `make debug`）。
 - **Windows 上 `make` 必须在 Git Bash 里跑**，PowerShell 里跑不起来。
 - **最后那句清理是必要的，而且测试失败时它不会跑。** `just` 在报错那一行 recipe 就中止，于是落盘用例写出来
-  的文件会一直留在 `test/sql/` 下，直到套件重新变绿。那里的断言之所以要那么写，原因就在这条 —— 见
-  [测试把文件写到哪儿](#where-the-tests-write)。
+  的文件会一直留在 `test/sql/` 下，直到套件重新变绿。那里的断言之所以要那么写，原因就在这条 —— 见下文
+  「测试把文件写到哪儿」。
 
 ### 更快的迭代
 
@@ -76,7 +78,7 @@ DuckDB 的测试运行器可以直接驱动产物，完全跳过 `make`。它需
 `--test-dir` 必给：它同时是 `__TEST_DIR__` 的取值，也就是会落盘写文件的用例拿到的目录。只跑一份就再加
 `--file-path test/sql/open_write.test`。这条路上没有任何清理 —— 用例写到哪儿，文件就留在哪儿。
 
-## 测试把文件写到哪儿 {#where-the-tests-write}
+## 测试把文件写到哪儿
 
 `__TEST_DIR__` 就是 `--test-dir` 原样代进去的值，而在这个 runner 里那就是 `test/sql` 本身。所以一个会写
 文件的用例，写进的是仓库：
@@ -124,9 +126,10 @@ WHERE replace(g.file, chr(92), '/') IN (t.a, t.b);    -- true
   `require duckfn_open`。
 - **错误是子串匹配。** `statement error` 下面写有辨识度的那一段就够了，不必抄 DuckDB 整条错误消息 ——
   抄全了反而会把用例绑死在一个随时可能改的文案上。本仓库自己的文案该点名的就点名（`open_path: the path or
-  URL must not be empty`、`open_write_options.dir must not be empty`），句首就是那个 SQL 名字。这个前缀来自
-  宏生成的 `SQL_NAME`，不是 Rust 函数名，所以三个参数的 `open_write_with` 报的仍然是 `open_write: …` ——
-  在 SQL 里调用的人看到的就该是这个名字。
+  URL must not be empty`、`open_write_options.dir must not be empty`），句首就是那个 SQL 名字。纯字符串那一族
+  没有自己的文案 —— `open_filename` 会被拦下来的全是 binder 的报错，所以那些就只匹配 `Binder Error`。这个
+  前缀来自宏生成的 `SQL_NAME`，不是 Rust 函数名，所以三个参数的 `open_write_with` 报的仍然是
+  `open_write: …` —— 在 SQL 里调用的人看到的就该是这个名字。
 - **用例不许走到 launch。** 这里没有任何一条断言依赖真实的 launch：注册形状来自 `duckdb_functions()`，
   `open_commands` 被真调用是因为它设计上就不起进程，而那两个真会打开东西的名字（`open_content`、
   `open_html`）只以「在 launch 之前就失败」或「被 `NULL` 短路」的形式出现。
@@ -153,6 +156,11 @@ WHERE replace(g.file, chr(92), '/') IN (t.a, t.b);    -- true
 要跟操作系统打交道的函数，还要覆盖目录里怎么说它：这个 SQL 名字下的每一个 arity 与返回类型，Rust 那一侧
 的名字没有多注册出一个函数；如果它还收一个选项 STRUCT，那要数一数有几个签名接受 `BLOB`
 （`open_write.test` 与 `open_content.test` 都是这么做的，而不是相信那份清单）。
+
+目录是「这台机器上跑不了的那些名字」的**退路**，不是首选写法。参数之外不碰任何东西的函数要按更强的标准
+来：逐字断言返回的值，就像 `open_filename.test` 把每条清洗规则在拿回来的字符串上对一遍那样。这样的 API
+若在哪一档 arity 上有意留了缺口，就把缺口也测出来 —— `open_filename(x, '_', true)` 被断言成一条 binder
+报错，因为一个没被说明的缺失签名，读起来就是漏写。
 
 提交前：`just lint`（`cargo clippy --all-targets -- -D warnings`）。另外，`src/extension/writer.rs` 里的命名
 与清洗规则还有一组 Rust 单元测试（`cargo test`，十二条）—— 那是 SQL 用例拿不到的方便：`TempDir` 会在测试

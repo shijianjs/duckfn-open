@@ -32,7 +32,8 @@ docs:
     goes to the platform launcher (ShellExecute on Windows, `/usr/bin/open` on macOS, `xdg-open` and its
     fallbacks on Unix); DuckDB reads, copies, or interprets nothing itself.
 
-    The API has two halves, because most of what a query produces is content rather than a path:
+    The API has two halves — plus a pair of pure-string functions that belongs to neither — because most of
+    what a query produces is content rather than a path:
 
     | Function | Input -> output | What it does |
     | --- | --- | --- |
@@ -43,6 +44,8 @@ docs:
     | `open_content(content, ext[, opts])` | `VARCHAR` or `BLOB` -> `VARCHAR` | writes it and opens it in one call |
     | `open_html(content)` | `VARCHAR` -> `VARCHAR` | the zero-config shortcut: a temporary `.html` in the default browser |
     | `open_print(text[, tail])` | `VARCHAR` -> `NULL` | writes to stdout, past the result set's column formatting |
+    | `open_filename(value[, replacement[, truncate, windows]])` | `VARCHAR` -> `VARCHAR` | rewrites a string into a usable file name, touching neither file nor process |
+    | `open_filename_check(value[, truncate, windows])` | `VARCHAR` -> `BOOLEAN` | rewrites nothing: is this string already a usable name |
 
     Three outcomes are distinguishable in SQL for the launch functions, and that is the whole contract:
     `NULL` means the row had no input (a NULL argument never reaches a launcher, and never writes a file),
@@ -69,6 +72,14 @@ docs:
     launchers this machine would use, so "nothing opened" can be diagnosed without a desktop. Its result
     is the same on a headless CI runner as on a workstation, which is why it is also the example worth
     copying into a test.
+
+    `open_filename` and `open_filename_check` start no process and open no file: they put the
+    `sanitize-filename` crate's own rules and defaults on SQL, so a file name taken from the data itself —
+    a customer name, a report title, a crawled `path` column — can be made usable before anything is
+    composed onto it, and counted by the check half without being rewritten. Illegal and control characters,
+    all-dot names, Windows reserved device names, trailing dots and spaces, and a cut at 255 bytes are what
+    that covers; the Windows checks stay on whatever the host is, so one query answers the same way on every
+    platform.
 
     The extension starts a process and, for the write half, creates the file you asked for in the
     directory you named or the system temp directory. It reads no configuration and opens no network

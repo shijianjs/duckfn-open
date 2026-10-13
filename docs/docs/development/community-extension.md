@@ -43,7 +43,7 @@ to the function it describes:
 
 `open_path` uses `examples = [ … ]` instead of the single `example`, for the two calls worth showing
 (`(path)` and `(path, app)`); the export joins them with `"; "`. And the CSV carries one row per **SQL
-name** — seven rows for the sixteen signatures this extension registers — not one per signature: the
+name** — nine rows for the twenty-one signatures this extension registers — not one per signature: the
 signatures merged in with `overloads_name` are folded into that function set on export, so `open_write`,
 which has four, is still one row.
 

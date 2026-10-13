@@ -21,11 +21,13 @@ flowchart LR
 
 ## 这个扩展注册了什么
 
-七个 SQL 名字、十六个签名，全是标量，外加一个 STRUCT 类型（`open_write_options`），落盘那一族的可选
+九个 SQL 名字、二十一个签名，全是标量，外加一个 STRUCT 类型（`open_write_options`），落盘那一族的可选
 参数都装在它里面。多数函数体里没有自己的逻辑：校验一下入参，然后交给 `launcher.rs` 或 `writer.rs` ——
 起进程的 crate 与写文件的 crate 都藏在这两层后面，不在这里（见[目录结构](./project-structure.md)）。
-唯一的例外是 `open_print`，它要做的整件事就是往 stdout 写，所以那段写就在它自己的文件里。下面每一行
-对调用方意味着什么（SQL 侧的语义），在用户指南的[函数](../user-guide/functions.md)那一页。
+两个文件是例外：`open_print` 要做的整件事就是往 stdout 写，所以那段写就在它自己的文件里；
+`scalar_open_filename.rs` 则两层都不调 —— 它把 `sanitize-filename` 这个库自己的对外面原样接到 SQL 上，
+用的是库自己的缺省，而不是落盘那一族的策略（写盘那条路径仍然走 `writer.rs`，它内部用的是同一个库、另一套
+策略）。下面每一行对调用方意味着什么（SQL 侧的语义），在用户指南的[函数](../user-guide/functions.md)那一页。
 
 | SQL 名字 | 签名 | Rust 函数 | 文件 | 行为 |
 | --- | --- | --- | --- | --- |
@@ -45,10 +47,16 @@ flowchart LR
 | `open_html` | `VARCHAR -> VARCHAR` | `open_html` | `scalar_open_html.rs` | 全走缺省、后缀写死成 `html` 的 `open_content`。 |
 | `open_print` | `VARCHAR -> VARCHAR` | `open_print` | `scalar_open_print.rs` | 打到 stdout，再补一个换行。返回值恒为 NULL。 |
 | `open_print` | `VARCHAR, VARCHAR -> VARCHAR` | `open_print_with_tail` | `scalar_open_print.rs` | 同上，换行换成第二个参数给的东西。 |
+| `open_filename` | `VARCHAR -> VARCHAR` | `open_filename` | `scalar_open_filename.rs` | 把字符串改写成一个可用的文件名；库自己的缺省（非法字符删掉、255 字节这一刀开着、Windows 规则开着）。 |
+| `open_filename` | `VARCHAR, VARCHAR -> VARCHAR` | `open_filename_with_replacement` | `scalar_open_filename.rs` | 同上，第二个参数指定非法字符换成什么，而不是删掉。 |
+| `open_filename` | `VARCHAR, VARCHAR, BOOLEAN, BOOLEAN -> VARCHAR` | `open_filename_with_options` | `scalar_open_filename.rs` | 一次给全：替换符，外加那两个开关 —— 255 字节这一刀与 Windows 规则。 |
+| `open_filename_check` | `VARCHAR -> BOOLEAN` | `open_filename_check` | `scalar_open_filename.rs` | 什么都不改写：这个字符串本来就是一个可用的名字吗？ |
+| `open_filename_check` | `VARCHAR, BOOLEAN, BOOLEAN -> BOOLEAN` | `open_filename_check_with_options` | `scalar_open_filename.rs` | 同一个问题，带上那两个开关。 |
 
-传 `NULL` 就什么都不跑：`NULL` 的路径不叫启动器，`NULL` 的内容不落盘，`NULL` 的文本不打，答复一律是
-`NULL` —— SQL 因此能把「这一行没有输入」和「这台机器起不动启动器」（`false`）、或者和一个真的写出来的
-路径分开。
+传 `NULL` 就什么都不跑：`NULL` 的路径不叫启动器，`NULL` 的内容不落盘，`NULL` 的文本不打，
+`open_filename` 那一族的任何一个参数是 `NULL` 就这一行不改写 —— 答复一律是 `NULL`。SQL 因此能把
+「这一行没有输入」和「这台机器起不动启动器」（`false`）、和一个真的写出来的路径分开；对
+`open_filename_check` 也是同一件事 —— 那里 `false` 是一个答复（这个名字还不能用），`NULL` 是根本没被问过。
 
 ## 标量：三种返回形状
 
@@ -80,11 +88,11 @@ pub(super) fn open_path(path: String) -> DuckOptionResult<bool> {
 }
 ```
 
-这七个名字用的都是这个形状，剩下的信息由值类型说：
+这九个名字用的都是这个形状，剩下的信息由值类型说：
 
-- 启动那一族是 `DuckOptionResult<bool>` —— 结论就是返回值；
-- 落盘那一族与 `open_html` 是 `DuckOptionResult<String>`（一个路径），`open_print` 也是它，只不过永远回
-  `Ok(None)`：文本已经上控制台了，SQL 这边没有值可给；
+- 启动那一族与 `open_filename_check` 是 `DuckOptionResult<bool>` —— 结论就是返回值；
+- 落盘那一族与 `open_html` 是 `DuckOptionResult<String>`（一个路径），`open_filename` 也是它（改写出来的
+  那个名字），`open_print` 同样是它，只不过永远回 `Ok(None)`：文本已经上控制台了，SQL 这边没有值可给；
 - `open_commands` 是 `DuckOptionResult<Vec<String>>`：`Vec<T>` 本身就是 SQL 的 list，所以返回类型是从
   Rust 类型读出来的，两边都不需要额外声明。
 
@@ -98,9 +106,11 @@ pub(super) fn open_path(path: String) -> DuckOptionResult<bool> {
 
 ### 同一个名字下的多个签名
 
-七个名字里有五个带着不止一个签名：`open_write` 与 `open_content` 各四个（文本 / 二进制 × 带选项 /
+九个名字里有七个带着不止一个签名：`open_write` 与 `open_content` 各四个（文本 / 二进制 × 带选项 /
 不带选项），`open_path` 与 `open_path_detached` 各两个（`(path)`、`(path, app)`），`open_print` 两个
-（`(text)`、`(text, tail)`）。每个名字底下只有第一个签名按自己的 Rust 函数名注册，其余都是另一条定义，
+（`(text)`、`(text, tail)`），`open_filename` 三个（`(value)`、`(value, replacement)`、
+`(value, replacement, truncate, windows)`），`open_filename_check` 两个（`(value)`、
+`(value, truncate, windows)`）。每个名字底下只有第一个签名按自己的 Rust 函数名注册，其余都是另一条定义，
 靠 `overloads_name` 并进去：
 
 ```rust
@@ -122,15 +132,21 @@ pub(super) fn open_write_blob_with(
 `open_write: …`。这恰是共用那条助手函数（这里的 `write_bytes`）能成立的原因：前缀是个参数，每条签名把
 自己的 `SQL_NAME` 传进去。
 
+一个名字底下的 arity 也不必连着：`open_filename` 注册的是 1、2、4 个参数那一档，因为 `truncate` 与
+`windows` 只能一起给 —— 这是这份 API 里唯一的一处压缩，也是 `SELECT open_filename('a.txt', '_', true)` 报
+`Binder Error` 而不是「第三个开关走了缺省」的原因。`test/sql/open_filename.test` 两头都断言：`1 / 2 / 4`
+这个形状，以及缺掉的那一档。
+
 ### 用到的参数类型
 
-参数的 Rust 类型决定这一列怎么读；这个扩展用到三种。
+参数的 Rust 类型决定这一列怎么读；这个扩展用到的就是这几种。
 
 | Rust 参数 | SQL 类型 | 为什么是它 |
 | --- | --- | --- |
 | `path: String` | `VARCHAR` | 文本进来，NULL 行短路（见下面一节）。 |
 | `content: DuckBlob` | `BLOB` | 字节进、字节出，一个都不动 —— `content.value` 是 `Vec<u8>`。图片的字节不该被当成 UTF-8 过一遍，所以 `open_write` / `open_content` 各有文本与二进制两对。 |
 | `options: OpenWriteOptions` | `open_write_options` | 这个扩展自己注册的那个 STRUCT，装三个可选项。 |
+| `truncate: bool`、`windows: bool` | `BOOLEAN` | `sanitize-filename` 的那两个开关，只成对给出（见上面「同一个名字下的多个签名」）。`open_filename_check` 没有 `replacement`：一个什么都不改写的问题，没有「换成什么」这一项。 |
 
 ### STRUCT 参数：三个会咬人的地方
 
@@ -174,6 +190,9 @@ pub(crate) struct OpenWriteOptions {
 
 - **`path: String`** —— 这里每一个签名都是这种写法。NULL 行被 duckfn 的参数读取层短路成 SQL `NULL`，
   函数体根本不会执行到那一行，也就一次启动器都不叫、一个文件都不写。多数情况下你要的就是这个。
+- **`truncate: bool`** —— BOOLEAN 参数上是同一次短路：开关传 NULL 这一行就答 `NULL`，不会悄悄去取缺省值。
+  这一点对 `open_filename` 那一族要紧 —— 它的缺省跟着那个库走，所以「这一行没给开关」和「这一行没有输入」
+  必须是两个不同的答复。
 - **`path: Option<String>`** —— NULL 以 `None` 进函数体，语义由你决定（返回 NULL、换成默认值、统计
   NULL 行数……）。
 
@@ -252,11 +271,14 @@ impl DuckAggregateState for SumState {
    `scalar_open_commands.rs` 是最小的完整样例（一个 `VARCHAR -> VARCHAR[]` 的标量，函数体两行）；
    `scalar_open_print.rs` 在它之上加了第二个签名和 `overloads_name` 那次合并；一个名字要同时带多个签名
    加一个选项参数时，抄 `scalar_open_write.rs`；想要一个把选项全部按缺省写死的快捷名字，看
-   `scalar_open_html.rs`。
+   `scalar_open_html.rs`；两层都不碰、一个名字下好几个签名、还故意空着一档 arity，看
+   `scalar_open_filename.rs`。
 3. **把这活交给管这件事的那一层。** 函数体这里只做校验 + 一次调用。起进程，以及凡是按目标平台分叉的东西
    —— `#[cfg]`、某个只有一两个平台编得过的 crate —— 都写到 `src/extension/launcher.rs` 里；写文件，
    以及「写到哪儿」的一切（后缀、目录、自动命名、文件名合法性）都写到 `src/extension/writer.rs` 里。
-   这两层存在的意义就是让函数文件始终只看到一个形状、让两个 SQL 名字共用一条规则。本项目只构建桌面
+   这两层存在的意义就是让函数文件始终只看到一个形状、让两个 SQL 名字共用一条规则。要是一个函数的领域
+   就是一段值、背后既没有进程也没有文件，那它没有层可调，就留在自己的文件里 —— `scalar_open_filename.rs`
+   就是这么写的，它是那两层的兄弟，不是任何一层的调用方。本项目只构建桌面
    平台，所以这棵树里没有 `#[cfg]`，每个依赖也就是 `[dependencies]` 里普通的一项，而不是
    `[target.'cfg(…)'.dependencies]` 里的一项；除非真要再加一套目标，否则别把它补回来。
    见[目录结构](./project-structure.md)。
@@ -273,9 +295,13 @@ impl DuckAggregateState for SumState {
    )]
    ```
 
-   只有那个拿到 SQL 名字的定义必须写这段文本：靠 `overloads_name` 并进去的签名可以什么都不带
-   （`open_write_with` 就是这么写的），而某条签名要补充读者不能漏的信息时也可以自带一份
-   （`open_write_blob` 就写了）。DuckDB 的 C 扩展 API 没有设置描述与示例的接口，所以这段文本是社区扩展页
+   只有那个拿到 SQL 名字的定义可以写 `description` 与 `comment`。`just docs_csv` 跑的是
+   `duckfn::doc::declared_function_descriptions()`，它把一整个函数集折成**一行**，取的是 `inventory` 迭代
+   顺序里第一个非空的值 —— 那是**链接顺序，不是源码顺序**。两条 overload 都写 description，导出的是哪一条
+   就取决于链接器先看到谁，所以只有一条写：`open_write_with` 就是这么写的，多出来的那两个 `open_filename`
+   签名与那个多出来的 `open_filename_check` 签名也因此一个字都不带。并进来的签名自带一份 `example` 是允许
+   的例外（`open_write_blob` 就写了一个）：examples 是拼接后按内容去重的，一条签名贡献自己的示例不会顶掉
+   别人的。DuckDB 的 C 扩展 API 没有设置描述与示例的接口，所以这段文本是社区扩展页
    `Added Functions` 表的唯一来源。`just docs_csv` 会把它导出到 `target/function_descriptions.csv`，
    一个 SQL 名字一行（见[社区扩展](./community-extension.md)）。文案用英文写 —— 它会被原样贴到那个页面上。
 6. **补测试**（见[测试](./testing.md)），然后跑 `just lint`。
@@ -285,12 +311,14 @@ impl DuckAggregateState for SumState {
 每个 SQL 名字共用一个短前缀（这里是 `open_`），前缀之后的部分要能读出这个函数做什么。这个名字是用户要
 敲的，所以别写成 `open_open_thing` 这类堆砌。
 
-属性宏默认拿 **Rust 函数名**当注册名，所以 `open_commands`、`open_html` 和 `open_print` 的第一条签名连
-一个额外参数都不必写。同一个名字底下还要第二个签名时，用 `overloads_name = "open_write"` 并进去（写法见
+属性宏默认拿 **Rust 函数名**当注册名，所以 `open_commands`、`open_html`、`open_print` 的第一条签名，以及
+`open_filename` 与 `open_filename_check`，连一个额外参数都不必写 —— Rust 名字与 SQL 名字就是同一个字符串。
+同一个名字底下还要第二个签名时，用 `overloads_name = "open_write"` 并进去（写法见
 上面「同一个名字下的多个签名」那节），此时 Rust 函数名与 SQL 名字就是有意不同的 —— SQL 那边从头到尾只
 出现 `overloads_name` 给的那个名字。
 
-宏还会为每个签名生成 `SQL_NAME` 常量，装的就是这条签名的 SQL 名字。同一个名字要在多处出现时（错误信息
+宏还会为每个签名生成 `SQL_NAME` 常量，装的是这条签名**注册进去的那个名字** —— 并进来的签名那里装的是
+`overloads_name` 给的值，不是它自己的 Rust 名字。同一个名字要在多处出现时（错误信息
 前缀、日志、提示），读那个常量，别再抄一份字面量；代价是这类函数得写成 `pub(super)`，因为生成的模块
 沿用函数的可见性。
 
@@ -303,3 +331,8 @@ impl DuckAggregateState for SumState {
 所以逐行解析不会出现在 profile 里。这个扩展没有用它 —— 落盘这一族本来就是逐行求值的，「每行一个文件」
 正是要的效果。那套写法（命名 STRUCT 类型 + 惰性参数）在 duckfn 指南里有，
 [duckfn_quantstats](https://github.com/shijianjs/duckfn-quantstats) 里也到处都是。
+
+还有第三种答案：什么都不注册，`open_filename` 走的就是这条。那两个 BOOLEAN 开关只有成对才有意义，于是它们
+留在位置参数上（缺掉三个参数那一档就是这么来的），这一族因此不新增任何 SQL 类型 ——
+`duckdb_types()` 里查不出新东西。一个命名的选项 STRUCT 划不划算，看的是一项设置能不能**各自独立地**省略，
+而 `open_write_options` 那三个 `VARCHAR` 字段正是这种情况。

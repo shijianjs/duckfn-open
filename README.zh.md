@@ -19,6 +19,10 @@ SELECT open_print(chart);                           -- 内容：直接进 stdout
 两半都面向在 DuckDB 会话里探索，不是把启动器嵌进生产程序；内容这一半是把那段落盘的活儿只写一遍，
 做成通用的「内容 → 一个能看它的地方」，而不是每个扩展各抄一份。
 
+还有第三族站在这两步之外，它什么都不往人眼前送：`open_filename` 与 `open_filename_check` 把一个字符串
+改写成能当文件名用的样子，或者回答它本来是不是。不起进程、不碰文件、连路径都不要 —— 这两个名字把
+[sanitize-filename](https://crates.io/crates/sanitize-filename) 这个库自己的规则与缺省原样接到 SQL 上。
+
 本仓库来自 [duckfn-extension-template](https://github.com/shijianjs/duckfn-extension-template)，
 它带来整套可运行的工作循环——构建、sqllogictest、文档导出、发版。同样写法的另一个扩展：
 [duckfn_quantstats](https://github.com/shijianjs/duckfn-quantstats)。
@@ -40,17 +44,18 @@ SELECT open_commands('report.html');
 "
 ```
 
-有三个名字不起任何进程，所以在任何机器上都能答，也因此最适合先试：`open_commands` 回答「在这里到底会
-拿什么去打开」，`open_write` 只写一个文件、把路径回给你，`open_print` 只往 stdout 写。
+有五个名字不起任何进程，所以在任何机器上都能答，也因此最适合先试：`open_commands` 回答「在这里到底会
+拿什么去打开」，`open_write` 只写一个文件、把路径回给你，`open_print` 只往 stdout 写，而两个
+`open_filename` 名字连桌面与文件都不要 —— 进一个字符串，出一个可用的名字（或者一个是/否）。
 
 `Justfile` 包住同一批命令：`just build`、`just sql "SELECT open_commands('report.html')"`、
 `just repl`（扩展已经 LOAD 好的 REPL）。
 
 ## 函数
 
-七个 SQL 名字、十六个签名，全是标量函数 —— 没有聚合函数、没有表函数 —— 另外注册一个 STRUCT 类型
+九个 SQL 名字、二十一个签名，全是标量函数 —— 没有聚合函数、没有表函数 —— 另外注册一个 STRUCT 类型
 `open_write_options(dir VARCHAR, "name" VARCHAR, part VARCHAR)`，落盘这一族的三个可选项就装在它里面。
-七个名字里有五个在同一个 SQL 名字下带多个签名（靠 duckfn 的 `overloads_name` 并成一个函数集），所以
+九个名字里有七个在同一个 SQL 名字下带多个签名（靠 duckfn 的 `overloads_name` 并成一个函数集），所以
 调用点写的是 `open_write(html, 'html', opts)` 与 `open_path('a', 'firefox')`，不会变成
 `open_write_with(…)` 或 `open_path_with(…)`。实现在 `src/extension/functions/`，落盘与命名规则集中在
 `src/extension/writer.rs`，平台差异集中在 `src/extension/launcher.rs`。
@@ -78,9 +83,21 @@ SELECT open_commands('report.html');
 最常做的事；`open_html` 则是 `open_content(content, 'html')` 把三个可选项全按缺省走 —— 因为 SQL 渲染出来的
 东西十有八九是 HTML。
 
+第三族是**纯字符串**，与上面两组都不相干：它里面没有任何一样东西会起进程、会碰文件。
+
+| 函数 | 签名 | 输出 |
+| --- | --- | --- |
+| `open_filename` | `(value)`、`(value, replacement)`、`(value, replacement, truncate, windows)` | `VARCHAR` —— 把同一个字符串改写成能当文件名用的样子 |
+| `open_filename_check` | `(value)`、`(value, truncate, windows)` | `BOOLEAN` —— 那一次改写会不会什么都不动 |
+
+查询里的文件名常常来自数据本身 —— 客户名、报表标题、抓回来的那一列 `path` —— 而它得先**成为一个名字**，
+才谈得上往后拼目录、拼 URL、交给下一个扩展。`open_write` 内部也确实把 `dir`、`name`、`part` 各洗一遍，
+但这两个名字**不是落盘那一族的助手**：它们是那个库的完整能力原样搬到 SQL 上，用库自己的规则与缺省，
+回答的时候连一个要写的文件都没有。
+
 ### 一次调用答的是什么
 
-两组的答法不一样，而各自都有自己的约定。
+这几组的答法不一样，而每一组都有自己的约定。
 
 **启动这一族** —— SQL 里能分辨三种结果，这就是全部约定：
 
@@ -100,6 +117,11 @@ SELECT open_commands('report.html');
   只是这台机器没有东西能把它显示出来。这一步走的是**不等**的那条路（`open::that_detached`）：
   写完一张图再打开它，不该被「等查看器关掉」挂住；
 - `open_print` 永远回 NULL：内容已经在控制台上了，SQL 这一侧没有值可给。
+
+**文件名这一族**回的是一个字符串或一个 BOOLEAN，再没有别的：任何一格参数是 NULL 就整行 NULL ——
+这一族没有缺省值可猜 —— 也没有「值不对」这种报错，因为这里没有哪种值是错的。什么都留不下的名字照样
+有答复，而那个答复可能就是空串（`SELECT open_filename('CON.txt'); -- ''`）。会被拦下来的只有 binder
+那一层：个数不对、类型不对。
 
 ### 落盘这一族守的规则
 
@@ -132,6 +154,54 @@ SELECT open_commands('report.html');
 而字符画（`textplot` 那类扩展返回成一个 VARCHAR 的 ASCII/盲文图）靠逐行对齐来读，塞进一个单元格就全散了。
 内容原样写到 stdout，每次调用都 flush，因为 Rust 的 stdout 是按行缓冲的；`tail` 取代默认追加的那个换行 ——
 `''` 是「接着同一行打」，`chr(10) || chr(10)` 是「空一行再打」。
+
+### 文件名这一族守的规则
+
+那个库管六件事，`open_filename` 六件全上：非法字符 `/ \ ? < > : * | "`、控制字符、整段只是点的名字
+（`.` 与 `..`）、Windows 的保留设备名（`CON`、`PRN`、`AUX`、`NUL`、`COM0`–`COM9`、`LPT0`–`LPT9`，
+带着后缀也算）、结尾的点与空格，以及 **255 字节**这一刀。
+
+```sql
+SELECT open_filename('quarterly/report:v2.csv');                    -- 'quarterlyreportv2.csv'
+SELECT open_filename('  the report.  ');                            -- '  the report'：结尾的点与空格去掉，开头的留着
+SELECT open_filename('CON.txt');                                    -- ''
+SELECT open_filename('..');                                         -- ''
+SELECT open_filename('a/b:c?.txt', '_');                            -- 'a_b_c_.txt'
+SELECT open_filename('sales|east', '-');                            -- 'sales-east'
+SELECT open_filename('CON.txt', '_', true, false);                  -- 'CON.txt'：Unix 的规则里没有保留设备名
+SELECT length(open_filename(repeat('a', 300)));                     -- 255
+SELECT length(open_filename(repeat('a', 300), '_', false, true));   -- 300
+```
+
+缺省跟着库走，**只有一处是刻意不跟的**：
+
+- `replacement` 缺省是 `''` —— 非法字符被**删掉**，不是被替换。想看它在哪里动过手就把替换符给上：`'_'`、
+  `'-'`、一整段也可以（`open_filename('a/b', '__')` → `'a__b'`），或者再回到 `''`；
+- `truncate` 缺省是 `true`，255 字节那一刀是开着的；
+- `windows` **钉成 `true`**，跟宿主平台无关。库里它的缺省是编译平台，那会让同一条 SQL 在三台机器上给出
+  三个答案；这里跑的是最严的那一套，三个平台同形，要 Unix 那套规则就明写
+  `open_filename(x, replacement, truncate, false)`。
+
+两个 BOOLEAN 只能一起给，也就是四个参数的那一条 —— **没有三个参数的写法**。这是这份 API 里唯一的一处
+压缩，不是漏配：两个开关各自摆在可选位置上就是五种组合，而其中只有库的那两种缺省值得一个更短的形式。
+判断那一条也是同一个形状，那两个开关在那里是第 2 与第 3 个参数。
+
+`open_filename_check` 是同一个库的判断那一半，它什么都不改写：`true` 的意思是在同样的开关下
+`open_filename` 会把拿到的那个值原样回给你。体检和过滤要的就是这一句 —— 先看看会有多少条被动到，
+再决定要不要动它们：
+
+```sql
+SELECT open_filename_check('report.csv');    -- true
+SELECT open_filename_check('a/b.txt');       -- false
+SELECT open_filename_check('CON.txt');       -- false
+SELECT open_filename_check('trail. ');       -- false
+SELECT count(*) FROM files WHERE NOT open_filename_check(name);
+```
+
+这里没有 `replacement`：一个都不改写的问题，没有「换成什么」这一项。
+
+至于**跑在 `open_write` 里面**的那条命名规则（`part` 里的空格并成 `_`、最多 48 个字符）是另一套策略，
+它刻意没有自己的 SQL 名字。别把一族的缺省读成另一族的。
 
 ### 两个 DuckDB 的坑
 
@@ -166,8 +236,8 @@ SELECT open_write('a', 'txt', {'dir':'   ', 'name':NULL, 'part':NULL});
 
 启动器是桌面软件，所以这个扩展只构建桌面平台（见下面「平台」一节）。在没有桌面的机器上，四个
 `open_path` 动作一律答复 `false`，`open_content` 与 `open_html` 报一个带着它们确实写出来的路径的错误，
-而 `open_commands` 照样能答 —— 它列出这台机器上会依次尝试什么。`open_write` 与 `open_print` 根本不需要
-桌面。见 `src/extension/launcher.rs`。
+而 `open_commands` 照样能答 —— 它列出这台机器上会依次尝试什么。`open_write`、`open_print` 与两个
+`open_filename` 名字根本不需要桌面。见 `src/extension/launcher.rs`。
 
 ## 从源码构建
 
@@ -197,7 +267,9 @@ just ci-build      # 只跑官方构建流程，不跑测试
 错误的检查）、不起任何进程的 `open_commands` 预览，以及整套落盘本身 —— `open_write` 写出去的文件用
 `read_text` / `read_blob` 读回来逐个验（命名、建目录、BLOB 字节原样往返、非法字符替换、同名覆盖），
 `open_print` 是真的被调用、断言它答 NULL。`open_content` 与 `open_html` 走的是同一个 `writer::write`，
-所以它们的测试留在 catalog 一侧，只跑那些到不了 launch 那一步的调用。
+所以它们的测试留在 catalog 一侧，只跑那些到不了 launch 那一步的调用。`open_filename` 那一族既不碰桌面
+也不碰磁盘，所以它的测试逐字断言每一次改写：库的六条规则一条条对、这个 API 刻意不给的那一档参数个数
+（`open_filename(x, '_', true)` 是个 binder error）、以及判断与改写在同样的开关下始终对得上。
 
 这些测试会往 `test/sql/`（运行器的 `__TEST_DIR__`）里写产物，所以 `.gitignore` 在那儿只留 `*.test`，
 而 `just test` 末尾会再跑一次 `git clean -fdX -- test/sql`。开发指南的
@@ -210,7 +282,7 @@ just ci-build      # 只跑官方构建流程，不跑测试
 `.github/workflows/MainDistributionPipeline.yml` 里的 `exclude_archs` 排掉三条 wasm 架构，而
 `just build_wasm` / `build_wasm_eh` / `test_wasm` 在本项目里被覆盖成一句说明，不再构建任何东西。
 在没有桌面的机器上，四个 `open_path` 动作一律答复 `false`，`open_content` / `open_html` 报一个带着路径的
-错误，而 `open_commands`、`open_write`、`open_print` 照常工作。
+错误，而 `open_commands`、`open_write`、`open_print` 与 `open_filename` 那一对照常工作。
 
 ## 文档站
 

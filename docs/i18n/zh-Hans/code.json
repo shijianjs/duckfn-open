@@ -346,7 +346,7 @@
     "description": "Home page feature card title"
   },
   "homepage.features.sql.details": {
-    "message": "七个函数名 —— open_path、open_write、open_content、open_html、open_print 以及其余 —— 就是普通的 DuckDB 函数：放进任意查询，和内置函数一起用，调用处不需要 import 任何东西。",
+    "message": "九个函数名 —— open_path、open_write、open_content、open_html、open_print、open_filename 以及其余 —— 就是普通的 DuckDB 函数，可选参数把它们摊开来是二十一个签名：放进任意查询，和内置函数一起用，调用处不需要 import 任何东西。",
     "description": "Home page feature card description"
   },
   "homepage.features.content.title": {
@@ -355,6 +355,14 @@
   },
   "homepage.features.content.details": {
     "message": "还没有落在磁盘上的报告、图表或页面可以直接交出去：open_write 把它写成文件并返回路径，open_content 在同一次调用里顺手打开，open_html 什么都不用配，open_print 则绕过结果集，给那些要一行行读的输出。",
+    "description": "Home page feature card description"
+  },
+  "homepage.features.filename.title": {
+    "message": "文件名来自数据本身",
+    "description": "Home page feature card title"
+  },
+  "homepage.features.filename.details": {
+    "message": "查询里的文件名常常出自数据本身 —— 客户名、报表标题、抓回来的那一列 path。open_filename 把它改写成各平台都认的名字，open_filename_check 只回答它本来是不是这样一个名字，于是查询能数出、筛出哪些非改不可，却在这一层先不动它。两头都是字符串：不写文件，不起进程。",
     "description": "Home page feature card description"
   },
   "homepage.features.install.title": {
@@ -406,7 +414,7 @@
     "description": "Home page paragraph introducing the SQL code blocks"
   },
   "homepage.showcase.caption": {
-    "message": "注释写的是每次调用的答复：前两个调用递进去的是你手上的内容，后两个是已经存在的路径 —— 最后一行只列出真去启动时会依次尝试的命令，而它一条都不会尝试。",
+    "message": "注释写的是每次调用的答复：前三个递进去的是一个还没有落在磁盘上的值，后两个是已经存在的路径 —— 最后一行只列出真去启动时会依次尝试的命令，而它一条都不会尝试。第三个调用是只停在字符串里的那一个：open_filename 改写的只是一个文件名，既不碰磁盘，也不碰桌面。",
     "description": "Home page note under the SQL code block explaining the trailing comments"
   },
   "homepage.showcase.link": {

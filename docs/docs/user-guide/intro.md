@@ -15,15 +15,16 @@ all take the same `.duckdb_extension` file.
 What it adds is one sentence of SQL for what your desktop already does for you: a path or a URL goes to
 the program configured to open it, so a query can drop a report in front of a human. Most of what a query
 produces has no path yet, though — it is content — so the other half of the API writes the content out as
-a file first, and opens that.
+a file first, and opens that. A third piece belongs to neither of those: it settles, on a plain string,
+whether that string can be used as a file name at all.
 
-Loading the extension registers seven function names and sixteen signatures, and every one of them is
+Loading the extension registers nine function names and twenty-one signatures, and every one of them is
 scalar: no aggregate functions, no table functions. It also registers one STRUCT type,
 `open_write_options(dir VARCHAR, "name" VARCHAR, part VARCHAR)`, which carries the three optional
 settings of the write family; like any registered type it shows in `duckdb_types()` rather than in
-`duckdb_functions()`.
+`duckdb_functions()`. The two filename functions register no type of their own.
 
-The names fall into two groups. The first takes a path or URL that already exists and hands it to the
+The names fall into three groups. The first takes a path or URL that already exists and hands it to the
 desktop:
 
 | Function | Kind | What it does |
@@ -46,6 +47,18 @@ path that the first group can work with.
 | [`open_print(text)`](./functions.md#open_print) | scalar | Writes the text straight to stdout, past the result set's formatting; always returns NULL. |
 | [`open_print(text, tail)`](./functions.md#open_print) | scalar | The same, with what to append after the text instead of a newline. |
 
+The third group is pure string work: it neither starts a program nor touches the filesystem, and it answers
+the question the other two run into as soon as a name comes out of the data — can this value be a file
+name?
+
+| Function | Kind | What it does |
+| --- | --- | --- |
+| [`open_filename(value)`](./functions.md#open_filename) | scalar | Rewrites a string into something usable as a file name, deleting what cannot be in one. |
+| [`open_filename(value, replacement)`](./functions.md#open_filename) | scalar | The same, with what to put where an illegal character was, so the edits show. |
+| [`open_filename(value, replacement, truncate, windows)`](./functions.md#open_filename) | scalar | The same, plus the 255-byte cut and the Windows rules as two switches. |
+| [`open_filename_check(value)`](./functions.md#open_filename_check) | scalar | Rewrites nothing: `true` when the value is already a usable name. |
+| [`open_filename_check(value, truncate, windows)`](./functions.md#open_filename_check) | scalar | The same question, with the two switches. |
+
 ## Install it
 
 ```sql
@@ -60,33 +73,36 @@ SELECT open_path('/var/tmp/report.html');        -- the program your desktop use
 SELECT open_path_detached('https://duckdb.org'); -- returns without waiting for the page to close
 SELECT open_write('{"a": 1}', 'json');           -- a file and its path; nothing is started
 SELECT open_html('<h1>hello</h1>');              -- a temporary .html, opened in the default browser
+SELECT open_filename('quarterly/report:v2.csv'); -- 'quarterlyreportv2.csv' — a string, nothing else
 ```
 
 Nothing on these pages runs for you: this is documentation, and every example is plain SQL for a DuckDB
 that has loaded the extension. The query below only reads the catalog, so it is the safest one to try
-first: it needs no desktop, and neither do `open_write` and `open_print` — one writes a file, the other
-writes to stdout. Launching does need a desktop: on a machine that has none (a server, a CI runner) the
-four `open_path` actions answer `false`, while `open_content` and `open_html` raise an error carrying the
-path they did write. [Functions](./functions.md) explains each answer.
+first: it needs no desktop, and neither do `open_write`, `open_print` or the filename family — one writes a
+file, one writes to stdout, and the other two rewrite a string and stop there. Launching does need a
+desktop: on a machine that has none (a server, a CI runner) the four `open_path` actions answer `false`,
+while `open_content` and `open_html` raise an error carrying the path they did write.
+[Functions](./functions.md) explains each answer.
 
 ```sql
 SELECT function_name, len(parameters), return_type
 FROM duckdb_functions()
 WHERE function_name LIKE 'open%'
-ORDER BY 1, 2;    -- seven names, sixteen signatures
+ORDER BY 1, 2;    -- nine names, twenty-one signatures
 ```
 
 [Installation](./installation.md) covers the other ways to get the file.
 
 :::note[A word about side effects]
 
-Nine of the sixteen signatures start a process, so the questions worth asking before putting one in a loop
-are "how many windows is this going to open" and "on whose machine is this query running". A call whose
-arguments are all constants is folded by DuckDB into a single execution, which is why
+Nine of the twenty-one signatures start a process, so the questions worth asking before putting one in a
+loop are "how many windows is this going to open" and "on whose machine is this query running". A call
+whose arguments are all constants is folded by DuckDB into a single execution, which is why
 `SELECT open_path('report.html')` opens one window and `SELECT open_path(p) FROM reports` opens one per
 row — there is no deduplication. Nothing else starts a process: `open_commands` only lists the commands a
 launch would try, `open_write` writes a file and stops there — which is what lets you hand the path to
-`open_path` yourself — and `open_print` only writes to stdout.
+`open_path` yourself — `open_print` only writes to stdout, and the two filename names never leave the
+string they were given.
 
 :::
 

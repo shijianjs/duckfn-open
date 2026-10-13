@@ -13,13 +13,14 @@ src/extension/mod.rs   ->  duckfn_entrypoint!("duckfn_open");
 src/bin/duckfn.rs      duckfn CLI entry   ->  #[path] mod extension; + duckfn::cli::run(...)
 
 src/extension/functions/
-    mod.rs                  one `mod …;` per file below
+    mod.rs                  one `mod …;` per file below, alphabetical (grouped by family here)
     scalar_open_path.rs     open_path / open_path_detached, two signatures each
     scalar_open_commands.rs open_commands        (VARCHAR -> VARCHAR[], starts no process)
     scalar_open_write.rs    open_write           four signatures, writes only
     scalar_open_content.rs  open_content         four signatures, write and then open
     scalar_open_html.rs     open_html            the zero-configuration HTML shortcut
     scalar_open_print.rs    open_print           two signatures, straight to stdout
+    scalar_open_filename.rs open_filename / open_filename_check, five signatures, pure strings
 src/extension/launcher.rs   the platform layer over the `open` crate (the only file that calls it)
 src/extension/writer.rs     content -> file -> path: extension, directory, naming, legality
 src/extension/types/
@@ -73,6 +74,12 @@ change to it would cost*:
 
 So a signature that grows an argument, a platform that grows a launcher, and a naming rule that grows an
 exception each land in exactly one file.
+
+One file is the exception to the `functions/` row: `scalar_open_filename.rs` has no process to start and no
+file to write, so the SQL boundary there *is* the whole function — it calls
+[`sanitize-filename`](https://crates.io/crates/sanitize-filename) itself, wiring the crate's two entry points
+(rewrite, and test) straight to SQL. That makes it a *sibling* of the two layers below, not a client of either
+(see [the pure-string family](#the-pure-string-family)).
 
 ## The platform layer: `launcher.rs`
 
@@ -134,6 +141,42 @@ terminal, it is usually concatenated further by a downstream query, and the test
 Nothing in this file launches a process and nothing in it is gated on a target — same reason as the
 platform layer: desktop only.
 
+## The pure-string family
+
+`scalar_open_filename.rs` holds `open_filename` (three signatures) and `open_filename_check` (two). It sits
+under `functions/` and calls *neither* layer: no process is started, no file is written, a `VARCHAR` goes in
+and a `VARCHAR` or a `BOOLEAN` comes out. What it is instead — and what makes it a sibling of the two layers
+rather than a client of either — is the [`sanitize-filename`](https://crates.io/crates/sanitize-filename)
+crate's own surface wired straight to SQL.
+
+The crate maintains *whether a string can be a file name*: the illegal characters `/ \ ? < > : * | "`, the
+control characters, the all-dot names (`.` and `..`), the Windows reserved device names (`CON`, `PRN`, `AUX`,
+`NUL`, `COM0-9`, `LPT0-9`, with or without a suffix), trailing dots and spaces, and the 255-**byte** cut.
+`open_filename`'s three trailing arguments are the crate's own `Options` fields and its defaults are the
+crate's too, so illegal characters are **deleted** (`replacement` is the empty string — pass a substitution to
+see where the edits were) and the cut is applied.
+
+**One default does not follow the crate: `windows` is pinned to `true`.** Its default there is the *compiling
+platform*, which would make one SQL statement answer differently on two machines; `true` is the strictest set
+and the same on all three platforms. Pass `false` for that switch when you want the Unix rules — under them
+`open_filename('CON.txt', '_', true, false)` keeps the name, and `open_filename_check('CON.txt')` still
+answers `false`, because that call is asking about Windows.
+
+These are **not helpers of `open_write`**, although the write family uses the same crate internally — with a
+different policy: `open_write`'s `name` substitutes `_` and never truncates, while `open_filename` deletes and
+does. Two sets of defaults, documented separately, so neither is a stand-in for the other. That choice is what
+the shape of the API records: `open_filename` has **no three-argument form**, because `truncate` and `windows`
+can only be passed together — the one compression in this API (two BOOLEANs in optional positions would be
+five combinations, of which only the crate's two defaults deserve a shorter form); `open_filename_check` takes
+no `replacement`, because a question that rewrites nothing has nothing to substitute. It answers `true` exactly
+when `open_filename` under the same options would return the value unchanged, which is what makes
+`WHERE NOT open_filename_check(name)` an audit rather than a silent rewrite. A `NULL` in any argument makes
+that row `NULL`.
+
+Also deliberate: the auto-naming `part` rule inside `open_write` (spaces to `_`, capped at 48 characters) is
+**not** exposed as a SQL name. That is this extension's own convention, not the crate's, and giving it a name
+of its own would imply a rule callers can lean on outside the write path.
+
 ## SQL-facing types: `types/`
 
 `extension/types/` holds the types that appear in SQL rather than in a Rust call. There is one today,
@@ -164,6 +207,11 @@ Other things belong in this layer as well: a named type registered with `#[duck_
 `list<struct<…>>` result, the options type a `DuckLazy` argument parses. Visibility goes one notch beyond
 the file that reads it — `pub(crate)` here, because the `functions` subtree reads it.
 
+And one thing deliberately does not: `open_filename` / `open_filename_check` register **no** type, which is
+why `duckdb_types()` shows nothing new for them. Their options are two BOOLEANs that only make sense as a
+pair — that is an argument list, not a shape worth a SQL type (see
+[the pure-string family](#the-pure-string-family)).
+
 ## The command-line bin
 
 `src/bin/duckfn.rs` compiles the extension a second time with `#[path = "../extension/mod.rs"] mod
@@ -179,7 +227,8 @@ and the exported CSV comes out empty — silently.
 
 Files under `functions/` are named "kind + what it does": `scalar_open_path.rs` holds the two launcher
 names (four signatures, because each name takes a `(path)` and a `(path, app)` form), `scalar_open_write.rs`
-holds the four `open_write` signatures, and `scalar_open_commands.rs` holds the read-only preview. When a
+holds the four `open_write` signatures, `scalar_open_commands.rs` holds the read-only preview, and
+`scalar_open_filename.rs` holds the two pure-string names (five signatures) that reach neither layer. When a
 feature outgrows a single file, split it into a subdirectory the way the duckfn example does
 (`functions/<feature>/mod.rs` plus one file per concern).
 
@@ -214,10 +263,12 @@ shape the build:
   one `ShellExecuteW` call); `insecure`, which splices the path into a command line, is not.
 - **[sanitize-filename](https://crates.io/crates/sanitize-filename)** — file-name legality: the illegal
   characters `/ \ ? < > : * | "`, control characters, Windows reserved device names (`CON`, `NUL`, `COM1`…)
-  and trailing dots and spaces. The rules are its job, all we state is what to substitute (`_`). Only
-  `writer.rs` calls it, and it calls it with `windows: true` (the strictest rules, so one set holds on all
-  three platforms) and `truncate: false` (it truncates at 255 *bytes*; length stays our business, in
-  characters).
+  and trailing dots and spaces. The rules are its job; what we state is the policy, and there are **two**
+  policies here. `writer.rs` substitutes `_`, does not truncate (it cuts at 255 *bytes*; length stays our
+  business, in characters) and pins `windows: true`, so one set of rules holds on all three platforms.
+  `scalar_open_filename.rs` hands the crate's own surface to SQL — its defaults, deleted instead of
+  substituted and the cut on — with `windows` pinned the same way, and it is explicitly *not* a helper of
+  `open_write` (see [the pure-string family](#the-pure-string-family)).
 - **[tempfile](https://crates.io/crates/tempfile)** — the random suffix of a generated name, the retry when
   one collides, and the guarantee that the name was free at that moment; also the scratch directories in
   `writer.rs`'s own tests. The alternative — roll a random number and poll `Path::exists` — leaves a TOCTOU

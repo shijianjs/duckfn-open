@@ -22,11 +22,14 @@ flowchart LR
 
 ## What this extension registers
 
-Seven SQL names, sixteen signatures, all scalar, plus one STRUCT type (`open_write_options`) that carries
+Nine SQL names, twenty-one signatures, all scalar, plus one STRUCT type (`open_write_options`) that carries
 the optional arguments of the write family. Most bodies hold no logic of their own: they validate the
 argument and hand it to `launcher.rs` or `writer.rs` — the crates that start a program and the crates that
-write a file live behind those two layers, not here (see [project structure](./project-structure.md)). The
-one exception is `open_print`, whose entire job is a write to stdout, so that write is in its file. The
+write a file live behind those two layers, not here (see [project structure](./project-structure.md)). Two
+files are the exceptions: `open_print`, whose entire job is a write to stdout, keeps that write in its file,
+and `scalar_open_filename.rs` calls neither layer at all — it wires the `sanitize-filename` crate's own
+surface straight to SQL, with the crate's defaults instead of the write family's policy (the write path still
+goes through `writer.rs`, which uses the same crate under a different one). The
 SQL-side semantics of every row below — what each value means to a caller — is the
 [user guide's Functions page](../user-guide/functions.md).
 
@@ -48,10 +51,17 @@ SQL-side semantics of every row below — what each value means to a caller — 
 | `open_html` | `VARCHAR -> VARCHAR` | `open_html` | `scalar_open_html.rs` | `open_content` with everything default and `html` pinned. |
 | `open_print` | `VARCHAR -> VARCHAR` | `open_print` | `scalar_open_print.rs` | Writes to stdout, then a newline. Always returns NULL. |
 | `open_print` | `VARCHAR, VARCHAR -> VARCHAR` | `open_print_with_tail` | `scalar_open_print.rs` | Same, with what to append instead of the newline. |
+| `open_filename` | `VARCHAR -> VARCHAR` | `open_filename` | `scalar_open_filename.rs` | Rewrites a string into a usable file name; the crate's defaults (illegal characters deleted, 255-byte cut on, Windows rules on). |
+| `open_filename` | `VARCHAR, VARCHAR -> VARCHAR` | `open_filename_with_replacement` | `scalar_open_filename.rs` | Same, with what to substitute instead of deleting. |
+| `open_filename` | `VARCHAR, VARCHAR, BOOLEAN, BOOLEAN -> VARCHAR` | `open_filename_with_options` | `scalar_open_filename.rs` | The substitution plus both switches in one call: the 255-byte cut and the Windows rules. |
+| `open_filename_check` | `VARCHAR -> BOOLEAN` | `open_filename_check` | `scalar_open_filename.rs` | Rewrites nothing: is this already a usable name? |
+| `open_filename_check` | `VARCHAR, BOOLEAN, BOOLEAN -> BOOLEAN` | `open_filename_check_with_options` | `scalar_open_filename.rs` | Same question, with the two switches. |
 
 `NULL` in and nothing runs: a `NULL` path launches nothing, a `NULL` content writes no file, a `NULL` text
-prints nothing — and the answer is `NULL` either way, which is how SQL tells "no input on this row" apart
-from "no launcher could be started" (`false`) or from a path it did write.
+prints nothing, a `NULL` in any argument of the `open_filename` pair rewrites nothing on that row — and the
+answer is `NULL` either way, which is how SQL tells "no input on this row" apart from "no launcher could be
+started" (`false`), from a path it did write, and from a name that is not yet usable (`false` there is an
+answer; `NULL` there was no input).
 
 ## Scalars: three return shapes
 
@@ -85,9 +95,11 @@ pub(super) fn open_path(path: String) -> DuckOptionResult<bool> {
 
 That is the shape every function here uses, with the value type doing the rest of the talking:
 
-- `DuckOptionResult<bool>` for the launch family — the verdict is the return value;
-- `DuckOptionResult<String>` for the write family and for `open_html` (a path), and for `open_print`
-  (always `Ok(None)`, since the text already went to stdout and SQL has nothing left to say);
+- `DuckOptionResult<bool>` for the launch family and for `open_filename_check` — the verdict is the return
+  value;
+- `DuckOptionResult<String>` for the write family and for `open_html` (a path), for `open_filename` (the
+  rewritten name), and for `open_print` (always `Ok(None)`, since the text already went to stdout and SQL has
+  nothing left to say);
 - `DuckOptionResult<Vec<String>>` for `open_commands`: a `Vec<T>` *is* a SQL list, so the return type is
   read off the Rust type and nothing has to be declared anywhere.
 
@@ -102,10 +114,12 @@ with `?` inside its own `DuckOptionResult`.
 
 ### Several signatures under one name
 
-Five of the seven names carry more than one signature: `open_write` and `open_content` four each (text and
+Seven of the nine names carry more than one signature: `open_write` and `open_content` four each (text and
 binary × with and without the options), `open_path` and `open_path_detached` two each (`(path)`,
-`(path, app)`), `open_print` two (`(text)`, `(text, tail)`). Only the first one under each name registers
-under its own Rust name; the rest are separate Rust functions folded in by `overloads_name`:
+`(path, app)`), `open_print` two (`(text)`, `(text, tail)`), `open_filename` three (`(value)`,
+`(value, replacement)`, `(value, replacement, truncate, windows)`) and `open_filename_check` two (`(value)`,
+`(value, truncate, windows)`). Only the first one under each name registers under its own Rust name; the rest
+are separate Rust functions folded in by `overloads_name`:
 
 ```rust
 #[duck_scalar_function(overloads_name = "open_write")]
@@ -127,15 +141,21 @@ The name `overloads_name` gives is also the name the generated `SQL_NAME` consta
 signatures above all report themselves as `open_write: …`. That is what makes the shared helper (`write_bytes`
 here) usable by all of them: the prefix is a parameter, and each signature passes its own `SQL_NAME`.
 
+The arities under one name need not be contiguous either: `open_filename` is registered at 1, 2 and 4
+arguments, because `truncate` and `windows` can only be passed together — the one compression in this API, and
+the reason `SELECT open_filename('a.txt', '_', true)` is a `Binder Error` rather than "the third switch
+defaulted". `test/sql/open_filename.test` asserts both the `1 / 2 / 4` shape and that missing arity.
+
 ### Parameter types in use
 
-A parameter's Rust type decides how the column is read; these three are what this extension uses.
+A parameter's Rust type decides how the column is read; these are what this extension uses.
 
 | Rust parameter | SQL type | Why this one |
 | --- | --- | --- |
 | `path: String` | `VARCHAR` | Text in, and a NULL row short-circuits (see below). |
 | `content: DuckBlob` | `BLOB` | Bytes in and bytes out, untouched — `content.value` is a `Vec<u8>`. Image bytes must not be pushed through UTF-8, which is why `open_write` / `open_content` each carry a text pair and a binary pair. |
 | `options: OpenWriteOptions` | `open_write_options` | The STRUCT this extension registers, for the three optional settings. |
+| `truncate: bool`, `windows: bool` | `BOOLEAN` | The two `sanitize-filename` switches, given only as a pair (see [Several signatures under one name](#several-signatures-under-one-name)). `open_filename_check` takes no `replacement`: a question that rewrites nothing has nothing to substitute. |
 
 ### A STRUCT argument: three things that will bite
 
@@ -183,6 +203,9 @@ Argument nullability is decided by the parameter type, and it applies to aggrega
 - **`path: String`** — what every signature here uses. A NULL input row is short-circuited to SQL `NULL` by
   duckfn's argument reader; the body never runs for that row, so no launcher is called and no file is
   written. This is what you want most of the time.
+- **`truncate: bool`** — the same short-circuit on a BOOLEAN argument: a NULL switch answers `NULL` for that
+  row rather than quietly taking the default. That matters for the `open_filename` family, whose defaults
+  follow the crate: "this row gave no switch" and "this row gave no input" have to stay two different answers.
 - **`path: Option<String>`** — NULL reaches the body as `None` and its meaning is yours to decide
   (return NULL, substitute a default, count NULLs, …).
 
@@ -270,15 +293,18 @@ aggregate chapter of the duckfn guide for the shapes it supports.
    `VARCHAR -> VARCHAR[]` scalar whose body is two lines); `scalar_open_print.rs` adds the second signature
    and the `overloads_name` merge; `scalar_open_write.rs` is the one to copy when a name needs several
    signatures plus an options argument; `scalar_open_html.rs` shows a shortcut name that fixes the options
-   instead of exposing them.
+   instead of exposing them; `scalar_open_filename.rs` is the one to copy when the function reaches neither
+   layer, several arities share one name, and one arity is deliberately left out.
 3. **Put the work in the layer that owns it.** A body here does validation and one call. Starting a program
    and anything that differs per target — `#[cfg]`, a crate only one platform can compile — belongs in
    `src/extension/launcher.rs`; writing a file, and anything about *where* it goes (extension, directory,
    generated name, file-name legality), belongs in `src/extension/writer.rs`. Both exist so the function
-   files keep seeing one shape and two SQL names can share one rule. This project builds for desktop
-   targets only, so there is no `#[cfg]` in the tree and every dependency is an ordinary `[dependencies]`
-   entry rather than a `[target.'cfg(…)'.dependencies]` one; keep it that way unless you actually add a
-   second target family. See [project structure](./project-structure.md).
+   files keep seeing one shape and two SQL names can share one rule. A function whose whole domain is a value
+   with no process and no file behind it has no layer to call and stays in its file — that is
+   `scalar_open_filename.rs`, and it is a sibling of those two layers, not a client of either. This project
+   builds for desktop targets only, so there is no `#[cfg]` in the tree and every dependency is an ordinary
+   `[dependencies]` entry rather than a `[target.'cfg(…)'.dependencies]` one; keep it that way unless you
+   actually add a second target family. See [project structure](./project-structure.md).
 4. **Attach it to the module tree**: one `mod …;` line per file in `src/extension/functions/mod.rs`, and a
    new SQL-facing type gets one in `src/extension/types/mod.rs`. The crate root stays untouched.
 5. **Write the documentation metadata** on the attribute — `description`, `comment`, `example` /
@@ -293,10 +319,15 @@ aggregate chapter of the duckfn guide for the shapes it supports.
    )]
    ```
 
-   Only the signature that owns a SQL name has to carry the text: the ones folded in by `overloads_name`
-   may stay bare, which is how `open_write_with` and `open_content_with` are written, and the extra text on
-   a signature that adds something a reader must not miss (`open_write_blob`'s "binary content") is fine
-   too. DuckDB's C extension API has no way to set a description or an example, so this text is the only
+   Only the signature that owns a SQL name may carry `description` and `comment`. `just docs_csv` runs
+   `duckfn::doc::declared_function_descriptions()`, which folds a whole function set into **one** row and
+   takes the first non-empty value in the order `inventory` iterates — **link order, not source order**. Two
+   overloads both carrying a description would make the exported row depend on which one the linker happened
+   to see first, so exactly one does: which is how `open_write_with` is written, and why the two extra
+   `open_filename` signatures and the extra `open_filename_check` one carry nothing. An `example` on a
+   folded-in signature is the exception and is fine to add (`open_write_blob` carries one) — examples are
+   concatenated and de-duplicated, so a signature can contribute its own call without disturbing the others.
+   DuckDB's C extension API has no way to set a description or an example, so this text is the only
    source for the `Added Functions` table on the community-extension page. `just docs_csv` exports it
    to `target/function_descriptions.csv`, one row per SQL name (see
    [Community extensions](./community-extension.md)). Write it in English — it is pasted onto that page as
@@ -308,13 +339,15 @@ aggregate chapter of the duckfn guide for the shapes it supports.
 Every SQL name carries one short prefix (`open_` here), and the part after it should read like what the
 function does. A prefixed name is also what users type, so resist `open_open_thing`.
 
-The attribute registers the **Rust function name** by default, which is why `open_commands`, `open_html`
-and `open_print`'s first signature need no extra argument at all. Another signature under a name already in
+The attribute registers the **Rust function name** by default, which is why `open_commands`, `open_html`,
+`open_print`'s first signature, `open_filename` and `open_filename_check` need no extra argument at all — the
+Rust name and the SQL name are the same string. Another signature under a name already in
 use comes through `overloads_name = "open_write"` instead (see [Several signatures under one
 name](#several-signatures-under-one-name)), and then the Rust name and the SQL name differ on purpose — the
 SQL side only ever shows the `overloads_name` value.
 
-The macro also generates a `SQL_NAME` constant per signature, holding that signature's SQL name. Once a
+The macro also generates a `SQL_NAME` constant per signature, holding the name that signature is **registered
+under** — for a folded-in signature that is the `overloads_name` value, not its own Rust name. Once a
 name appears in several places — error prefixes, log lines, hints — read that constant rather than
 repeating the literal; the price is that such a function has to be `pub(super)`, because the generated
 module inherits the function's visibility.
@@ -331,3 +364,8 @@ profiles. This extension does not use one — the write family is evaluated per 
 row being the point. The pattern (a named STRUCT type plus a lazy argument) is documented in the duckfn
 guide and used throughout
 [duckfn_quantstats](https://github.com/shijianjs/duckfn-quantstats).
+
+A third answer is "register nothing", and `open_filename` uses it: two BOOLEAN switches that only make sense
+together stay positional (which is what leaves the three-argument form out), so that family adds no SQL type
+— `duckdb_types()` shows nothing new for it. A named options STRUCT pays for its registration when several
+settings can be omitted *independently*, which is exactly `open_write_options`'s three `VARCHAR` fields.

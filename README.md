@@ -23,6 +23,11 @@ Both halves are aimed at exploring inside a DuckDB session, not at embedding a l
 program; the content half is that persistence step written once, as a general "content → somewhere you
 can look at it" instead of a copy per extension.
 
+A third family stands outside both steps and gets nothing in front of anyone: `open_filename` and
+`open_filename_check` turn a string into something usable as a file name, or answer whether it already
+is. No process, no file, no path — those two names carry
+[sanitize-filename](https://crates.io/crates/sanitize-filename)'s own rules and defaults straight onto SQL.
+
 This repository starts from [duckfn-extension-template](https://github.com/shijianjs/duckfn-extension-template),
 which carries the full working loop — build, sqllogictest, docs export, release. Another extension written
 the same way: [duckfn_quantstats](https://github.com/shijianjs/duckfn-quantstats).
@@ -44,19 +49,20 @@ SELECT open_commands('report.html');
 "
 ```
 
-Three names start no process and so answer anywhere, which makes them the ones to try first:
+Five names start no process and so answer anywhere, which makes them the ones to try first:
 `open_commands` replies with what *would* open this here, `open_write` only writes a file and hands back
-its path, `open_print` only writes to stdout.
+its path, `open_print` only writes to stdout, and the two `open_filename` names ask for neither a desktop
+nor a file — a string in, a usable name (or a yes/no) out.
 
 The `Justfile` wraps the same commands: `just build`, `just sql "SELECT open_commands('report.html')"`,
 `just repl` (a REPL with the extension already loaded).
 
 ## Functions
 
-Seven SQL names and sixteen signatures, every one of them a scalar function — no aggregate function and
+Nine SQL names and twenty-one signatures, every one of them a scalar function — no aggregate function and
 no table function — plus one STRUCT type the extension registers,
 `open_write_options(dir VARCHAR, "name" VARCHAR, part VARCHAR)`, which is where the optional arguments of
-the write family live. Five of the names carry more than one signature under a single SQL name (merged
+the write family live. Seven of the names carry more than one signature under a single SQL name (merged
 with duckfn's `overloads_name`), so the calls read `open_write(html, 'html', opts)` and
 `open_path('a', 'firefox')`, never `open_write_with(…)` or `open_path_with(…)`. Implementation:
 `src/extension/functions/`, the persistence rules in `src/extension/writer.rs`, the platform differences
@@ -85,9 +91,23 @@ The second group starts from content, which is the shape of most of what a query
 thing to do while exploring, and `open_html` is `open_content(content, 'html')` with all three options
 left at their default because what SQL renders is HTML nine times out of ten.
 
+The third group is pure strings and belongs to neither of the two above: nothing in it starts a process or
+touches a file.
+
+| Function | Signatures | Output |
+| --- | --- | --- |
+| `open_filename` | `(value)`, `(value, replacement)`, `(value, replacement, truncate, windows)` | `VARCHAR` — the same string rewritten into a usable file name |
+| `open_filename_check` | `(value)`, `(value, truncate, windows)` | `BOOLEAN` — whether that rewrite would change nothing |
+
+A query holds file names that come from the data itself — a customer name, a report title, the `path`
+column that was crawled in — and one of those has to *become* a name before a directory, a URL or the next
+extension can be composed onto it. `open_write` sanitizes its `dir`, `name` and `part` internally, but
+these two names are **not helpers of that family**: they are the crate's own full capability put on SQL,
+with the crate's own rules and defaults, answering without ever being given a file to write.
+
 ### What a call answers
 
-The two groups answer differently, and each of those is its own contract.
+These groups do not answer alike, and each one is its own contract.
 
 **The launch family** — three distinguishable outcomes, and that is the whole contract:
 
@@ -110,6 +130,11 @@ The two groups answer differently, and each of those is its own contract.
   non-blocking route (`open::that_detached`): writing a chart and opening it should not hang until the
   viewer is closed;
 - `open_print` returns NULL always: the text is on the console and SQL has nothing left to say.
+
+**The filename pair** answers with a string or a BOOLEAN and nothing else: NULL as soon as any argument is
+NULL — this family has no default to guess at — and no error for a bad value, because no value is bad
+here. A name with nothing salvageable in it still gets an answer, and that answer can be the empty string
+(`SELECT open_filename('CON.txt'); -- ''`). The only rejections are the binder's: wrong count, wrong type.
 
 ### The rules the write family follows
 
@@ -150,6 +175,57 @@ to stdout exactly as it is, flushed on every call because Rust buffers stdout by
 the newline that is appended by default — `''` means "keep going on this line",
 `chr(10) || chr(10)` means "leave a blank line".
 
+### The rules the filename pair follows
+
+The crate maintains six things and `open_filename` applies all of them: the illegal characters
+`/ \ ? < > : * | "`, control characters, a name that is nothing but dots (`.` and `..`), the Windows
+reserved device names (`CON`, `PRN`, `AUX`, `NUL`, `COM0`–`COM9`, `LPT0`–`LPT9`), including the ones
+carrying a suffix, trailing dots and spaces, and the cut at **255 bytes**.
+
+```sql
+SELECT open_filename('quarterly/report:v2.csv');                    -- 'quarterlyreportv2.csv'
+SELECT open_filename('  the report.  ');                            -- '  the report': trailing dot and spaces go, leading ones stay
+SELECT open_filename('CON.txt');                                    -- ''
+SELECT open_filename('..');                                         -- ''
+SELECT open_filename('a/b:c?.txt', '_');                            -- 'a_b_c_.txt'
+SELECT open_filename('sales|east', '-');                            -- 'sales-east'
+SELECT open_filename('CON.txt', '_', true, false);                  -- 'CON.txt': the Unix rules have no reserved device names
+SELECT length(open_filename(repeat('a', 300)));                     -- 255
+SELECT length(open_filename(repeat('a', 300), '_', false, true));   -- 300
+```
+
+The defaults follow the crate, with **one deliberate exception**:
+
+- `replacement` defaults to `''` — the illegal characters are **deleted**, not substituted. Pass one to see
+  where it edited: `'_'`, `'-'`, a whole string (`open_filename('a/b', '__')` → `'a__b'`), or `''` again;
+- `truncate` defaults to `true`, so the 255-byte cut is applied;
+- `windows` is **pinned to `true`** whatever the host is. In the crate its default is the compiling
+  platform, which would let one SQL statement answer differently on three machines; here the strictest set
+  runs everywhere and the Unix rules are the explicit `open_filename(x, replacement, truncate, false)`.
+
+The two BOOLEANs only come together, as the four-argument call — there is **no three-argument form**. That
+is the one compression in this API, not an oversight: two flags in optional positions would be five
+combinations, of which only the crate's two defaults deserve a shorter spelling. The same shape holds on
+the check side, where the two flags are arguments 2 and 3.
+
+`open_filename_check` is the predicate half of the same crate and rewrites nothing: `true` means
+`open_filename` under the same options would hand back the value it was given. That is what an audit or a
+filter wants — see how much would move before deciding to move it:
+
+```sql
+SELECT open_filename_check('report.csv');    -- true
+SELECT open_filename_check('a/b.txt');       -- false
+SELECT open_filename_check('CON.txt');       -- false
+SELECT open_filename_check('trail. ');       -- false
+SELECT count(*) FROM files WHERE NOT open_filename_check(name);
+```
+
+It takes no `replacement`: a question that rewrites nothing has nothing to substitute.
+
+The naming rule that runs *inside* `open_write` — spaces in `part` collapsed to `_`, 48 characters at most
+— is a different policy and deliberately has no SQL name of its own. Don't read one family's defaults as
+the other's.
+
 ### Two DuckDB quirks worth knowing
 
 - a struct literal that omits a field is **not** implicitly widened to the three-field STRUCT, so write
@@ -189,8 +265,8 @@ SELECT open_write('a', 'txt', {'dir':'   ', 'name':NULL, 'part':NULL});
 The launcher is desktop software, which is why this extension builds for desktop platforms only (see
 [Platforms](#platforms)). On a machine with no desktop the four `open_path` actions answer `false`,
 `open_content` and `open_html` raise an error carrying the path they did write, and `open_commands` still
-answers — listing what would be tried there. `open_write` and `open_print` need no desktop at all. See
-`src/extension/launcher.rs`.
+answers — listing what would be tried there. `open_write`, `open_print` and the two `open_filename` names
+need no desktop at all. See `src/extension/launcher.rs`.
 
 ## Build from source
 
@@ -224,7 +300,10 @@ launch action that starts no process — and the persistence layer for real: `op
 written and read back with `read_text` / `read_blob` (naming, directory creation, byte-exact BLOB
 round-trips, sanitizing, overwriting), and `open_print` is actually called and asserted to answer NULL.
 `open_content` and `open_html` run through the same `writer::write`, so their tests stay on the catalog
-side and on the calls that error before the launch step.
+side and on the calls that error before the launch step. The `open_filename` pair needs neither a desktop
+nor a disk, so its file asserts every rewrite verbatim: each of the crate's rules, the arity this API
+deliberately does not offer (`open_filename(x, '_', true)` is a binder error), and that the predicate and
+the rewrite still agree under the same options.
 
 Those tests write into `test/sql/` (the runner's `__TEST_DIR__`), so `.gitignore` keeps only `*.test`
 there and `just test` ends with `git clean -fdX -- test/sql`. The development guide's
@@ -238,7 +317,7 @@ target: CI excludes the three wasm architectures (`exclude_archs` in
 `.github/workflows/MainDistributionPipeline.yml`), and `just build_wasm` / `build_wasm_eh` / `test_wasm`
 are overridden to say so instead of building. On a machine with no desktop the four `open_path` actions
 answer `false` and `open_content` / `open_html` raise an error carrying the path they wrote, while
-`open_commands`, `open_write` and `open_print` work as usual.
+`open_commands`, `open_write`, `open_print` and the `open_filename` pair work as usual.
 
 ## Documentation site
 

@@ -47,9 +47,10 @@ just rename csv_stats
 1. **`AGENTS.md`** —— 填上 `{{PROJECT_GOAL}}` 占位符，并把命名约定里的函数名前缀改成你自己的（这个
    扩展的前缀是 `open_`）。
 2. **模板自带的示例函数与 `test/sql/*.test`** —— 换成你自己的 API，见[编写函数](./writing-functions.md)
-   与[测试](./testing.md)。本仓库已经走完这一步：`src/extension/functions/` 里的
-   `open_path` / `open_path_detached` / `open_commands`、`src/extension/launcher.rs` 这层平台代码，以及
-   `test/sql/` 下按函数文件各一份的用例，就是它做完之后的样子。
+   与[测试](./testing.md)。本仓库已经走完这一步：`src/extension/functions/` 下六个函数文件（覆盖七个 SQL
+   名字）、`src/extension/launcher.rs` 这层平台代码、`src/extension/writer.rs` 这层落盘代码、
+   `src/extension/types/open_write_options.rs` 里那个选项 STRUCT，以及 `test/sql/` 下按函数文件各一份的用例
+   再加一份冒烟测试。
 3. **`community-extension/description.yml`** —— `extension.name` / `description` / `maintainers` / `repo`
    由你填，逐个字段的说明在[社区扩展](./community-extension.md)。
 4. **`LICENSE`** —— 版权人，以及 `Cargo.toml` 里的 duckfn 版本。
@@ -81,12 +82,34 @@ duckdb -unsigned -c "LOAD './build/debug/duckfn_open.duckdb_extension';"
 ```sql
 SELECT function_name, len(parameters) AS args, return_type
 FROM duckdb_functions()
-WHERE function_name IN ('open_path', 'open_path_detached', 'open_commands')
+WHERE starts_with(function_name, 'open_')
 ORDER BY function_name, args;
 ```
 
-三个 SQL 名字、五个签名：两个启动器名字各有 `(path)` 与 `(path, app)` 两个形式，靠 `overloads_name`
-并成一个函数集。
+七个 SQL 名字、十六个签名，每一个都是标量函数 —— 没有聚合函数，也没有表函数。其中五个名字在同一个 SQL
+名字下带着好几个签名，靠 `overloads_name` 并起来，所以签名的数量比名字多：
+
+```text
+open_path(path)                    open_path(path, app)
+open_path_detached(path)           open_path_detached(path, app)
+open_commands(path)
+
+open_write(content|blob, ext)      open_write(content|blob, ext, opts)
+open_content(content|blob, ext)    open_content(content|blob, ext, opts)
+open_html(content)
+open_print(text)                   open_print(text, tail)
+```
+
+它注册的那一个类型，就是落盘那一族的选项参数：
+
+```sql
+SELECT type_name, logical_type
+FROM duckdb_types()
+WHERE starts_with(type_name, 'open_');
+```
+
+也就是 `open_write_options(dir VARCHAR, "name" VARCHAR, part VARCHAR)` —— `name` 之所以要带引号，是因为
+NAME 在 DuckDB 的语法里是关键字。上面这些签名与类型都是在 Rust 里声明的，见[编写函数](./writing-functions.md)。
 
 不起进程的那条调用在哪台机器上答案都一样，所以可移植的演示用的是 NULL：
 
@@ -100,6 +123,16 @@ SELECT open_path(NULL) AS opened;   -- NULL 输入被短路，一次启动器都
 SELECT open_path('');    -- 报错：路径或 URL 不能为空
 ```
 
+落盘那一族在任何机器上的答案都相同，因为它根本不需要桌面：`open_write` 返回它写出的路径、不起任何进程，
+`open_print` 把文字打到控制台、返回 `NULL`。
+
+```sql
+SELECT open_write('report body', 'md', {'dir':'./out', 'name':'report', 'part':NULL});
+-- ./out/report.md —— 目录不存在就建出来，什么都不起
+
+SELECT open_print('row ' || x) FROM range(3) t(x);  -- 控制台三行，SQL 里三个 NULL
+```
+
 真去 launch 会答什么都取决于这台机器的桌面：装了哪些启动器、`.html` 关联到了谁。也没有第二个可以跑它的
 地方 —— 这个扩展只构建桌面平台，见[构建与发版](./build-and-release.md)。
 
@@ -108,6 +141,9 @@ SELECT open_path('report.html');                    -- 默认程序，等启动�
 SELECT open_path('https://duckdb.org', 'firefox');  -- 指定程序
 SELECT open_path_detached('report.html');           -- 起进程即返回
 SELECT open_commands('report.html');                -- 会依次尝试的命令，一条都不执行
+SELECT open_content(svg, 'svg', {'dir':'./out', 'name':NULL, 'part':'chart'});
+                                                    -- 先落盘，再交给默认程序
+SELECT open_html('<h1>hello</h1>');                 -- 同样一步到位，但什么都不用配：.html、浏览器
 ```
 
 不进 REPL、只跑一条语句：
@@ -119,10 +155,12 @@ just sql "SELECT open_path(NULL)"
 ## 4. 跑测试
 
 ```shell
-just test           # make configure + make debug + make test
+just test           # make configure + make debug + make test，最后清掉测试写出来的东西
 ```
 
-更快的迭代方式见[测试](./testing.md)。
+`test/sql/` 下有七份用例，其中两分会真的执行：`open_write.test` 写文件再把内容读回来，`open_print.test`
+往 stdout 写。写出来的文件就落在 `test/sql/` 下（`named/`、`blob/`、`unique/` 这些），既被 git 忽略，
+也会被最后那步清理掉。清理、更快的迭代方式，以及新增函数该覆盖什么，都在[测试](./testing.md)里。
 
 ## 几个坑
 

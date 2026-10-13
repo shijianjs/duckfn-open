@@ -10,12 +10,16 @@ duckdb_unittest_tempdir
 .vscode
 .mcp.json
 
-# test/sql 下只跟踪 .test：落盘测试写出来的 HTML 之类产物一律忽略。
-# 顺序要紧 —— 最后一条规则生效，所以 `!` 必须写在 `*` 之后。
+# test/sql 下只跟踪 .test：落盘测试写出来的产物一律忽略 —— 带后缀的文件（HTML 那些）与整目录
+# （`__TEST_DIR__/blob`、`__TEST_DIR__/named` 这类落盘点）。顺序要紧 —— 最后一条规则生效，
+# 所以 `!` 必须写在 `*` 之后。
 #
-# Only .test files are tracked under test/sql; artefacts such as the HTML a persistence test writes are
-# ignored. Order matters — the last matching rule wins, so the `!` line has to come after the `*`.
+# Only .test files are tracked under test/sql; everything a persistence test writes is ignored — both
+# files with an extension (the HTML ones) and whole directories (`blob`, `named` and the like, i.e. where
+# `__TEST_DIR__` + a sub-directory lands). Order matters — the last matching rule wins, so the `!` line has
+# to come after the `*`.
 test/sql/*.*
+test/sql/*/
 !test/sql/*.test
 
 # 试跑时落在仓库根目录的产物

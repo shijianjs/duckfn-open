@@ -1,14 +1,18 @@
 // ============================================================================
 // 标量函数：预览 open 会依次尝试哪些启动命令（open::commands）
 //
-// 这个扩展里唯一一个**不起进程**的动作，也是唯一一个结果稳定到能写进断言的动作：无桌面的 CI runner 上
+// 「启动」这一族里唯一一个**不起进程**的动作，也是唯一一个启动答复稳定到能写进断言的：无桌面的 CI runner 上
 // `open_path` 只会给出 false（那里没有 xdg-open，也没有 explorer.exe），而它把「换成有桌面的机器会跑什么」
 // 原样列出来。两条用途都由此而来 —— 排查「为什么什么都没打开」，以及把候选序列交给 SQL 自己检查。
+// （这个扩展里另有两条不起进程的路：`open_write` 只落盘、`open_print` 只打 stdout —— 它们不答复「会跑什么
+// 命令」这个问题。）
 //
-// Example: the only action in this extension that starts no process, and the only one whose result is
-// stable enough to assert. On a headless CI runner `open_path` can only answer false (no xdg-open, no
-// explorer.exe there), while this lists what would run on a machine that has a desktop. Both uses come
-// from that: debugging "nothing opened", and handing the candidate sequence to SQL to inspect.
+// Example: the only action in the launch family that starts no process, and the only launch answer stable
+// enough to assert. On a headless CI runner `open_path` can only answer false (no xdg-open, no explorer.exe
+// there), while this lists what would run on a machine that has a desktop. Both uses come from that:
+// debugging "nothing opened", and handing the candidate sequence to SQL to inspect. (Two other entry points
+// start nothing either — `open_write` only writes, `open_print` only writes to stdout — but neither answers
+// "what command would run here".)
 // ============================================================================
 
 use duckfn::{DuckOptionResult, duck_scalar_function};

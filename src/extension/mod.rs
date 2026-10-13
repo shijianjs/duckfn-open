@@ -6,6 +6,7 @@
 mod functions;
 mod launcher;
 mod types;
+mod writer;
 
 use duckfn::duckfn_entrypoint;
 

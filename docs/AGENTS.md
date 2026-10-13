@@ -37,5 +37,5 @@ locale 的输出（英文 `/<repo>/data/x.tsv`、中文 `/<repo>/zh-Hans/data/x.
 ## 验证
 
 改完跑 `npm run build`（`just docs_build`）：`onBrokenLinks` 是 `throw`，中英文两侧的链接与锚点都要
-能解析。页面结构或 `customFields` 动过时再跑一次 `npm run typecheck`（`just docs_typecheck`）——
-它比 build 更早发现 `docusaurus.config.ts` 里的类型问题。
+能解析。页面结构或 `customFields` 动过时再在 `docs/` 下跑一次 `npm run typecheck`（`just` 里没有这一条，
+Deploy Docs 工作流会跑它）—— 它比 build 更早发现 `docusaurus.config.ts` 里的类型问题。

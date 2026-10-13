@@ -135,3 +135,39 @@ libduckdb-sys = { version = ">=1.10500, <2", features = ["loadable-extension"] }
 # the legacy `cmd /c start` on Windows) is exactly the one not to enable: it splices the path into a
 # command line, which is the injection surface to avoid.
 open = { version = "5.4", features = ["shellexecute-on-windows"] }
+
+# 下面三个 crate 服务同一件事的另一半：把一段 SQL 里的**内容**（VARCHAR 或 BLOB）先落成一个文件，
+# 因为启动器只认路径、不认内容（见 src/extension/writer.rs）。
+#
+# The three crates below serve the other half of the same story: turn a piece of **content** from SQL
+# (VARCHAR or BLOB) into a file first, because a launcher understands paths and not content (see
+# src/extension/writer.rs).
+
+# sanitize-filename：文件名的**合法性**（非法字符 `/ \ ? < > : * | "`、控制字符、Windows 保留设备名
+# `CON`/`NUL`/`COM1`…、结尾的点与空格）按 Node 同名库的规则由它维护，我们只说「替换成什么」。
+# dir / name / part 三个用户可填的字段都要过它（见 writer.rs），一处规则、三处生效。
+#
+# sanitize-filename: the **legality** of a file name (illegal characters `/ \ ? < > : * | "`, control
+# characters, Windows reserved device names `CON`/`NUL`/`COM1`…, trailing dots and spaces) is
+# maintained here, following the rules of the Node library of the same name; all we say is what to
+# substitute. All three caller-supplied fields (dir / name / part) go through it (see writer.rs), so
+# one set of rules covers them all.
+sanitize-filename = "0.6"
+
+# tempfile：**随机尾缀与撞名重试**，以及「这个文件名当时确实是空的」这个保证。自动命名（用户没给
+# `name`）用它新建文件，而不是自己拼随机数再 `Path::exists` 轮询 —— 后者有 TOCTOU 的窗口，随机源也
+# 要自己找。临时目录同样是它的事。
+#
+# tempfile: the **random suffix, the collision retry, and the guarantee that this name was empty at
+# that moment**. Auto-naming (no `name` given) creates the file through it instead of rolling a random
+# number and polling `Path::exists` — the latter leaves a TOCTOU window and needs its own random
+# source. Finding the temporary directory is its business too.
+tempfile = "3.27"
+
+# chrono：自动名字里的时间戳（`%Y%m%d-%H%M%S`，放在最前，所以一个目录按名字排序就是按时间排序）。
+# 不手算 epoch —— 日历算术正是它的事。`clock` 取本地时间，default features 已经带着它。
+#
+# chrono: the timestamp in an auto-generated name (`%Y%m%d-%H%M%S`, first, so sorting a directory by
+# name sorts it by time). No hand-rolled epoch arithmetic — calendar arithmetic is exactly what it is
+# for. `clock` gives the local time and the default features already carry it.
+chrono = "0.4"

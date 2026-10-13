@@ -6,7 +6,8 @@
 //   1. 把 `io::Result<()>` 压成 `bool` —— SQL 侧就返回它（true 表示启动器被成功拉起，见 scalar_open_path.rs）；
 //   2. 把 `&str` 交给 open（它要的是 `OsStr` 与 app 名），并把 `Vec<Command>` 渲染成字符串列表。
 //
-// 五个签名共用这一个模块，函数文件因此只面对「返回 bool 的四个动作 + 一个会报错的预览」这一种形状。
+// 启动这一件事全部经过这一个模块，函数文件因此只面对三种形状：返回 bool 的四个动作（`open_path` 那一族）、
+// 把路径当返回值因而改用报错的 open_content / open_html，以及一个会报错的预览（`open_commands`）。
 // 这里不需要 `#[cfg]`：启动器是桌面软件，本扩展只构建桌面平台，没有 wasm 目标（见根目录 AGENTS.md）。
 //
 // Example：open 自己承担的事——各平台入口、参数引用、WSL 与 Wine 的分支、启动器起不来的错误——这里
@@ -21,9 +22,11 @@
 //      see scalar_open_path.rs);
 //   2. hand `&str` to open (which wants `OsStr` and an app name) and render `Vec<Command>` as strings.
 //
-// The five signatures share this one module, so the function files face a single shape — four actions
-// returning a bool plus one fallible preview. No `#[cfg]` is needed here: a launcher is desktop
-// software, and this extension builds for desktop targets only (no wasm target; see AGENTS.md).
+// Everything that starts a program goes through this one module, so the function files face three shapes:
+// the four actions returning a bool (the `open_path` family), the pair whose return value is already a path
+// and so reports a launch failure as an error (open_content / open_html), and one fallible preview
+// (`open_commands`). No `#[cfg]` is needed here: a launcher is desktop software, and this extension builds
+// for desktop targets only (no wasm target; see AGENTS.md).
 //
 // Everything open already owns — the per-platform entry points, argument quoting, the WSL and Wine
 // branches, the "no launcher started" error — is deliberately not reimplemented here.
@@ -72,11 +75,38 @@ pub(crate) fn open_with_app_detached(path: &str, app: &str) -> bool {
     open::with_detached(path, app).is_ok()
 }
 
+/// 用系统默认程序打开，起进程即返回；**起不来就报错**（`open::that_detached`）。
+///
+/// 与 [`open_default_detached`] 的区别只在错误往哪儿放。那一个的返回值就是它的结论（BOOLEAN），
+/// 而 `open_content` / `open_html` 的返回值已经是写好的路径了，启动失败在那里没有位置 —— 只能报错，
+/// 并且错误里要带上路径：文件已经在磁盘上了，用户要知道去哪儿手工打开。
+///
+/// 不等启动器退出：探索的时候一次查询不该被「等浏览器关掉」挂住。要拿启动器的结果，用
+/// [`open_default`] 那一族（`open_path`）。
+///
+/// Open with the default program and return as soon as the launcher is started, **reporting an error
+/// when it is not** (`open::that_detached`).
+///
+/// The difference from [`open_default_detached`] is only where the error goes: there, the return value
+/// is the verdict (BOOLEAN), while `open_content` / `open_html` already spend their return value on the
+/// path they wrote, so a launch failure has nowhere to go but an error — one that carries the path,
+/// because the file is on disk and the user needs to know where to open it by hand.
+///
+/// It does not wait for the launcher to exit: an exploratory session should not be blocked on a browser
+/// being closed. Use the [`open_default`] family (`open_path`) to get the launcher's outcome.
+pub(crate) fn open_default_checked(sql_name: &str, path: &str) -> DuckResult<()> {
+    open::that_detached(path).map_err(|err| {
+        duck_error(format!(
+            "{sql_name}: the file was written to '{path}', but no launcher could be started: {err}"
+        ))
+    })
+}
+
 /// 列出「默认程序这条路会依次尝试哪些启动命令」，一条都不执行（`open::commands`）。
 ///
 /// 它是 open 在各平台上排好的候选序列（Linux 是 xdg-open 及其后备，Windows 是 PowerShell 辅助进程再
-/// explorer.exe），所以这台机器上到底会跑什么，看它就够了 —— 而这是唯一一个**不起进程**的动作，也是
-/// 唯一一个结果稳定到可以在 CI 里断言的动作（无桌面的 runner 上真去 launch 只会得到一个 false）。
+/// explorer.exe），所以这台机器上到底会跑什么，看它就够了 —— 而「启动」这一族里只有它**不起进程**，也就只有
+/// 它的答复稳定到可以在 CI 里断言（无桌面的 runner 上真去 launch 只会得到一个 false）。
 ///
 /// 渲染成字符串用的是 `Command` 的 Debug 形状，即「程序名 + 逐个引用参数」，与 shell 无关；参数里的空格
 /// 因此看得见面，不会被拼成一条歧义命令行。
@@ -84,8 +114,8 @@ pub(crate) fn open_with_app_detached(path: &str, app: &str) -> bool {
 /// List the launchers the default-program path would try in order, running none of them
 /// (`open::commands`). This is open's per-platform candidate sequence (xdg-open and its fallbacks on
 /// Linux, the PowerShell helper then explorer.exe on Windows), so it answers "what would actually run
-/// here" — and it is the only action that starts no process, hence the only one whose result is stable
-/// enough to assert in CI (a headless runner turns a real launch into a plain false).
+/// here" — and within the launch family it is the only action that starts no process, hence the only one
+/// whose answer is stable enough to assert in CI (a headless runner turns a real launch into a plain false).
 ///
 /// Each command renders through `Command`'s Debug shape, i.e. "program plus one quoted argument each",
 /// so spaces inside an argument stay visible instead of being spliced into an ambiguous command line.

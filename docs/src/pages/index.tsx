@@ -124,12 +124,13 @@ LOAD duckfn_open;`;
 
 /**
  * The other half: the functions the extension registers, called exactly like
- * DuckDB's own. These three are the shapes a first read needs — a path with the
- * default program, a URL with a program named in the second argument, and the
- * one call that starts nothing.
+ * DuckDB's own. These four are the shapes a first read needs — content becoming
+ * a file, content becoming a browser window, an existing path going to the
+ * default program, and the one call that starts nothing.
  */
-const USAGE_SAMPLE = `SELECT open_path('report.html');  -- true once a launcher has been started
-SELECT open_path('https://duckdb.org', 'firefox');  -- the program is named here
+const USAGE_SAMPLE = `SELECT open_write(markdown, 'md');  -- content out to a file, its path back, nothing started
+SELECT open_html('<h1>hello</h1>');  -- a temporary .html, opened in the default browser
+SELECT open_path('report.html');  -- true once a launcher has been started
 SELECT open_commands('report.html');
 -- VARCHAR[]: the launch commands open_path would try on this machine, in order`;
 
@@ -221,7 +222,21 @@ function featuresContent(): FeaturesContent {
           id: 'homepage.features.sql.details',
           description: 'Home page feature card description',
           message:
-            'open_path, open_path_detached and open_commands are ordinary DuckDB functions: use them in any query, alongside the built-in ones, with nothing to import.',
+            'Seven function names — open_path, open_write, open_content, open_html, open_print and the rest — are ordinary DuckDB functions: use them in any query, alongside the built-in ones, with nothing to import.',
+        }),
+      },
+      {
+        icon: 'lucide:file-output',
+        title: translate({
+          id: 'homepage.features.content.title',
+          description: 'Home page feature card title',
+          message: 'Content, not only paths',
+        }),
+        details: translate({
+          id: 'homepage.features.content.details',
+          description: 'Home page feature card description',
+          message:
+            'A report, a chart or a page that has no file yet can be handed over directly: open_write writes it out and returns the path, open_content opens it in the same call, open_html needs no configuration at all, and open_print bypasses the result set for output that is read line by line.',
         }),
       },
       {
@@ -398,9 +413,10 @@ function CodeShowcase(): ReactNode {
               <Translate
                 id="homepage.showcase.caption"
                 description="Home page note under the SQL code block explaining the trailing comments">
-                The comments are what each call answers: true once a launcher
-                has been started, and the last line lists the commands a launch
-                would try — without trying any of them.
+                The comments are what each call answers: the first two are the
+                content you hand in, the last two are a path that already exists
+                — and the final line only lists the commands a launch would try,
+                without trying any of them.
               </Translate>
             </p>
           </div>

@@ -9,11 +9,17 @@ AGENTS.md（duckfn-extension-template 自带的那一份）：克隆模板后**�
 
 ## 项目事实（唯一需要人维护的一段）
 
-- 这个扩展做什么：把 [open](https://crates.io/crates/open) 的「按桌面配置打开一个路径或 URL」接到 SQL 上 ——
+- 这个扩展做什么：把 [open](https://crates.io/crates/open) 的「交给桌面配置好的那个程序」接到 SQL 上，
+  并把这条能力从「已经有个路径」推广到「任何一段内容都先有个地方能看」——
   `open_path(path[, app])` 与它的非阻塞版 `open_path_detached(path[, app])` 起启动器，
-  `open_commands(path)` 只列出会依次尝试的启动命令、不起任何进程。三个 SQL 名字、五个签名，全是标量函数，
-  没有聚合与表函数；平台差异集中在 `src/extension/launcher.rs`。**只构建桌面平台**：启动器是桌面软件，
-  这个扩展没有 wasm 目标（见下面「排除 wasm 构建」）。
+  `open_commands(path)` 只列出会依次尝试的启动命令、不起任何进程；
+  `open_write(content|blob, ext[, opts])` 把一段内容落盘、只回路径（不起进程，好和其它 path 函数拼），
+  `open_content(...)` 落盘后立刻用默认程序打开（就是前两者的合成），`open_html(content)` 是它零配置的
+  HTML 特例，`open_print(text[, tail])` 绕过结果集直接写到 stdout —— 字符画这类被 CLI 排版一下就散的
+  东西走这条路。七个 SQL 名字、十六个签名，全是标量函数，没有聚合与表函数；此外注册一个 STRUCT 类型
+  `open_write_options(dir, name, part)` 承载落盘的三个可选项。平台差异集中在
+  `src/extension/launcher.rs`，落盘与命名规则集中在 `src/extension/writer.rs`。**只构建桌面平台**：启动器
+  是桌面软件，这个扩展没有 wasm 目标（见下面「排除 wasm 构建」）。
 - 本仓库来自 [duckfn-extension-template](https://github.com/shijianjs/duckfn-extension-template)：
   克隆后第一件事是 `just rename <新扩展名>`（见下面「扩展名与改名」）。
 
@@ -172,13 +178,21 @@ replacement scan。这个扩展的前缀是 `open_`（模板那份是 `my_`）�
 调用点上都是纯噪声，而 `open_` 短到可以忽略，又足以在 `duckdb_functions()` 里按前缀检索。
 **前缀只是命名空间，不再是扩展名的缩写** —— 不要因为扩展名变了就跟着改。
 
-前缀之后的部分要能读懂，不要拿缩写堆砌。这个名字下的两个签名靠 `overloads_name` 并成一个函数集
-（Rust 函数名与 SQL 名字不同，见下面 `SQL_NAME` 那一段）：
+前缀之后的部分要能读懂，不要拿缩写堆砌。一个名字下的多个签名靠 `overloads_name` 并成一个函数集
+（Rust 函数名与 SQL 名字不同，见下面 `SQL_NAME` 那一段）—— 七个名字里 `open_path`、
+`open_path_detached`、`open_write`、`open_content`、`open_print` 都是这样并出来的：
 
 ```text
 open_path(path)              open_path(path, app)
 open_path_detached(path)     open_path_detached(path, app)
 open_commands(path)
+
+open_write(content, ext)     open_write(content, ext, opts)
+open_write(blob, ext)        open_write(blob, ext, opts)
+open_content(content, ext)   open_content(content, ext, opts)
+open_content(blob, ext)      open_content(blob, ext, opts)
+open_html(content)
+open_print(text)             open_print(text, tail)
 ```
 
 `rename` 脚本不动函数名（那是你的域代码）：换完扩展名顺手把示例函数与 `test/sql/*.test` 一起改成

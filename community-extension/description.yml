@@ -1,6 +1,6 @@
 extension:
   name: duckfn_open
-  description: Open a local path or URL with the program your desktop is configured to use, straight from SQL
+  description: Open a path, a URL, or the output of a query with the program your desktop is configured to use
   version: 0.1.0
   language: Rust
   build: cargo
@@ -21,36 +21,59 @@ docs:
     -- Hand it to the default program; true once a launcher has been started
     SELECT open_path('./report.html');
 
+    -- Most query output is content, not a path: write it out and get the path back, starting nothing
+    SELECT open_write('{"a":1}', 'json');
+
     -- NULL input starts nothing, so SQL can tell "no input" from "could not open"
     SELECT open_path(NULL);
   extended_description: |
-    `duckfn_open` wraps the Rust `open` crate for SQL: it hands a path or a URL to whatever the current
-    desktop configuration opens that kind of thing with — the system default program, or one you name.
-    Nothing is read, copied, or interpreted by DuckDB; the value goes to the platform launcher
-    (ShellExecute on Windows, `/usr/bin/open` on macOS, `xdg-open` and its fallbacks on Unix).
+    `duckfn_open` wraps the Rust `open` crate for SQL: it hands a thing to whatever the current desktop
+    configuration opens that kind of thing with — the system default program, or one you name. The value
+    goes to the platform launcher (ShellExecute on Windows, `/usr/bin/open` on macOS, `xdg-open` and its
+    fallbacks on Unix); DuckDB reads, copies, or interprets nothing itself.
+
+    The API has two halves, because most of what a query produces is content rather than a path:
 
     | Function | Input -> output | What it does |
     | --- | --- | --- |
-    | `open_path(path)` | `VARCHAR` -> `BOOLEAN` | default program, waits for the launcher |
-    | `open_path(path, app)` | `VARCHAR, VARCHAR` -> `BOOLEAN` | named program, waits for the launcher |
-    | `open_path_detached(path)` | `VARCHAR` -> `BOOLEAN` | default program, returns as soon as it started |
-    | `open_path_detached(path, app)` | `VARCHAR, VARCHAR` -> `BOOLEAN` | named program, same |
+    | `open_path(path[, app])` | `VARCHAR[, VARCHAR]` -> `BOOLEAN` | opens a path or URL, waiting for the launcher |
+    | `open_path_detached(path[, app])` | `VARCHAR[, VARCHAR]` -> `BOOLEAN` | the same, returning as soon as the launcher started |
     | `open_commands(path)` | `VARCHAR` -> `VARCHAR[]` | lists the launcher commands, runs none |
+    | `open_write(content, ext[, opts])` | `VARCHAR` or `BLOB` -> `VARCHAR` | writes content to a file, returns its path, starts nothing |
+    | `open_content(content, ext[, opts])` | `VARCHAR` or `BLOB` -> `VARCHAR` | writes it and opens it in one call |
+    | `open_html(content)` | `VARCHAR` -> `VARCHAR` | the zero-config shortcut: a temporary `.html` in the default browser |
+    | `open_print(text[, tail])` | `VARCHAR` -> `NULL` | writes to stdout, past the result set's column formatting |
 
-    Three outcomes are distinguishable in SQL, and that is the whole contract: `NULL` means the row had
-    no input (a NULL argument never reaches a launcher), `true` means a launcher was started, `false`
-    means none could be started on this machine. Whether to wait is the visible difference between the
-    two pairs — on Linux `xdg-open` returns only once the target program exits, so
-    `open_path_detached` is what you want inside a query. An empty path or application is an error
-    rather than a `false`, since a typo and an unopenable file deserve different answers.
+    Three outcomes are distinguishable in SQL for the launch functions, and that is the whole contract:
+    `NULL` means the row had no input (a NULL argument never reaches a launcher, and never writes a file),
+    `true` means a launcher was started, `false` means none could be started on this machine. Whether to
+    wait is the visible difference between the two `open_path` pairs — on Linux `xdg-open` returns only
+    once the target program exits, so `open_path_detached` is what you want inside a query. An empty path
+    or application is an error rather than a `false`, since a typo and an unopenable file deserve different
+    answers.
 
-    `open_commands` is the side-effect-free entry point: it lists, in the order the crate would try them,
-    the launchers this machine would use, so "nothing opened" can be diagnosed without a desktop. Its result
+    The write half returns a path, which moves where a failure can be written: `open_content` and
+    `open_html` report a launcher that cannot start as an **error carrying that path**, because the file
+    really is on disk and a bare `false` would throw the path away. Their three options ride in an
+    `open_write_options` STRUCT (`dir`, `name`, `part`): the extension is required, the directory defaults
+    to the system temp directory and is created with its parents when missing, and with no `name` one is
+    generated as `open-<time>-<part>-<random>.<ext>`. File-name legality (illegal and control characters,
+    Windows reserved device names, trailing dots and spaces) is `sanitize-filename`'s job, and the random
+    suffix with the guarantee that a generated name overwrites nothing is `tempfile`'s.
+
+    `open_print` is for the output the CLI's result formatting destroys: character art read line by line,
+    such as the ASCII or braille charts a plotting extension produces, which would otherwise arrive
+    wrapped into a single VARCHAR cell. It writes to stdout as it is and returns NULL.
+
+    `open_commands` is the read-only entry point: it lists, in the order the crate would try them, the
+    launchers this machine would use, so "nothing opened" can be diagnosed without a desktop. Its result
     is the same on a headless CI runner as on a workstation, which is why it is also the example worth
     copying into a test.
 
-    The extension touches no file system and no network of its own: it starts a process and nothing else,
-    so it is worth a thought before calling it over a column of untrusted paths. Requires **DuckDB 1.3
-    or newer**: it is built against DuckDB 1.5.6 headers but declares the C API floor it needs (v1.2.0),
-    so one binary loads into 1.3.2 through 1.5.6 alike. Source and the development notes:
+    The extension starts a process and, for the write half, creates the file you asked for in the
+    directory you named or the system temp directory. It reads no configuration and opens no network
+    connection of its own, and it does not inspect the content it passes along — so it is worth a thought
+    before calling it over a column of untrusted paths. Requires **DuckDB 1.3 or newer**: it is built
+    against DuckDB 1.5.6 headers but declares the C API floor it needs (v1.2.0), so one binary loads into
+    1.3.2 through 1.5.6 alike. Source and the development notes:
     <https://github.com/shijianjs/duckfn-open>.

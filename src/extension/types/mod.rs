@@ -1,20 +1,21 @@
-// 面向 SQL 的类型放这里：`#[duck_struct]` / `#[duck_enum]` 定义的自定义类型、用 `list<struct<…>>`
-// 当返回值的行类型、给 `DuckLazy` 参数用的配置 STRUCT，都归这一层。
+// 面向 SQL 的类型放这里：`#[derive(DuckStruct)]` / `#[derive(DuckEnum)]` 定义的自定义类型、用
+// `list<struct<…>>` 当返回值的行类型、给函数当可选参数的配置 STRUCT，都归这一层。
 //
-// 这个扩展目前不需要自定义类型（五个签名收的都是 VARCHAR，输出是 BOOLEAN 与 VARCHAR[]），
-// 所以这里暂时是空的 —— 它留在骨架里是为了告诉你「类型放哪儿」，用不着时整个目录删掉也行
-// （记得同时删掉 src/extension/mod.rs 里的 `mod types;`）。
+// 本扩展目前有一个：`open_write_options`（`open_write` / `open_content` 的第 3 个参数）。凡是「三个以下
+// 的可选设置」都值得用一个具名 STRUCT 接住 —— 它比一串同类型的可选位置参数好读，也比一段 JSON 好校验
+// （字段拼错在 binder 那一层就报错，不必等运行期）。
 //
-// 挂法（和 functions 一样，往这里加 `mod`）：
-//   pub(crate) mod open_options;   // 被 functions 子树读到的类型放宽一档
+// 挂法（和 functions 一样，往这里加 `mod`）：被 functions 子树读到的类型放宽一档（`pub(crate)`）。
 //
-// The SQL-facing types live here: custom types defined with `#[duck_struct]` / `#[duck_enum]`, the row
-// type of a function returning `list<struct<…>>`, and the options STRUCT a `DuckLazy` argument takes.
+// The SQL-facing types live here: custom types defined with `#[derive(DuckStruct)]` /
+// `#[derive(DuckEnum)]`, the row type of a function returning `list<struct<…>>`, and the options STRUCT
+// a function takes as an optional argument.
 //
-// This extension needs no custom type today (all five signatures take VARCHAR and answer BOOLEAN or
-// VARCHAR[]), so this module is empty for now — it is in the skeleton to show where types go, and the
-// whole directory can be deleted when you do not need it (delete the `mod types;` line in
-// src/extension/mod.rs as well).
+// There is one today: `open_write_options` (the third argument of `open_write` / `open_content`). Any
+// handful of optional settings (three or fewer) is worth catching with a named STRUCT — it reads better
+// than a run of optional positional arguments of the same type, and validates better than a JSON string
+// (a misspelled field fails at the binder instead of at run time).
 //
-// Attach submodules here the same way as in `functions`:
-//   pub(crate) mod open_options;   // types read by the `functions` subtree go one notch more visible
+// Attach submodules here the same way as in `functions`: a type read by the `functions` subtree goes one
+// notch more visible (`pub(crate)`).
+pub(crate) mod open_write_options;

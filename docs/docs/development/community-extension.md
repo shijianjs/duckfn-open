@@ -43,8 +43,15 @@ to the function it describes:
 
 `open_path` uses `examples = [ … ]` instead of the single `example`, for the two calls worth showing
 (`(path)` and `(path, app)`); the export joins them with `"; "`. And the CSV carries one row per **SQL
-name** — `open_path`, `open_path_detached`, `open_commands` — not one per signature: the two signatures
-merged in with `overloads_name` carry no description of their own, so they add no row.
+name** — seven rows for the sixteen signatures this extension registers — not one per signature: the
+signatures merged in with `overloads_name` are folded into that function set on export, so `open_write`,
+which has four, is still one row.
+
+That merge is why the text goes on **one** signature per name and nowhere else. `description` and `comment`
+are taken as the first non-empty value in the order the compile-time registry iterates, which is link order
+rather than source order — two overloads both carrying a description would make the exported row depend on
+which one the linker happened to see first. `example` / `examples` are the exception: they are concatenated
+and de-duplicated, so an overloaded signature may contribute its own example without disturbing the others.
 
 Regenerate and copy it whenever those attributes change:
 
@@ -90,7 +97,7 @@ that need a decision:
 | `extension.maintainers` | Your GitHub handle. |
 | `repo.github` | `owner/repository`. |
 | `repo.ref` | The **commit SHA** (40 characters) of the released version — `git rev-list -n 1 v0.1.0` — not `main` and not the tag name. A registration points at immutable code, and a build from a branch would claim a development version. |
-| `docs.hello_world` | A runnable example, rendered into a code block. Do not write `INSTALL` / `LOAD` here: the page adds those itself. The draft in `community-extension/description.yml` leads with `SELECT open_commands('report.html')`, the one entry point that starts no process. |
+| `docs.hello_world` | A runnable example, rendered into a code block. Do not write `INSTALL` / `LOAD` here: the page adds those itself. The draft in `community-extension/description.yml` gives one call per half of the API — `open_commands` and `open_write`, neither of which starts a process — then `open_path`, and `open_path(NULL)` as the row that has no input at all. |
 | `docs.extended_description` | The prose around the function table. |
 
 `community-extension/AGENTS.md` explains each field's provenance and the submission steps in more

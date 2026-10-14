@@ -94,6 +94,7 @@ that need a decision:
 | `extension.language` / `build` | `Rust` and `cargo` for a project built from this template. |
 | `extension.license` | `MIT` (the repository's `LICENSE`). Note the community *docs page* spells it `licence`; the real schema is `license`. |
 | `extension.requires_toolchains` | `"rust;python3"` — the same value the CI workflow passes as `extra_toolchains`. |
+| `extension.excluded_platforms` | `"wasm_mvp;wasm_eh;wasm_threads"` — the extension is desktop-only (`open` does not compile for emscripten), and the registry builds from its own matrix, which never reads this repository's `exclude_archs`. |
 | `extension.maintainers` | Your GitHub handle. |
 | `repo.github` | `owner/repository`. |
 | `repo.ref` | The **commit SHA** (40 characters) of the released version — `git rev-list -n 1 v0.1.0` — not `main` and not the tag name. A registration points at immutable code, and a build from a branch would claim a development version. |

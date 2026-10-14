@@ -76,16 +76,19 @@ ORDER BY 1, 2;    -- nine names, twenty-one signatures
   a server, a CI runner — the four `op_open_path` actions answer `false`, `op_open_content` and
   `op_open_html` raise an error carrying the path they did write, and `op_open_commands` is the one call
   that still answers there, listing what would be tried. `op_write_file`, `op_print` and the filename
-  functions need no desktop at all.
+  functions need no desktop at all. That is the extension's shape rather than an accident of the plumbing —
+  it is for interactive work, not for DuckDB embedded in an application (see [Introduction](../intro.md)).
 - **NULL in, NULL out — and nothing started, nothing written.** That is what makes the answers readable:
   NULL is a row with no input. In `op_sanitize_filename` and `op_sanitize_filename_check` it means NULL in
   **any** argument, the switches included.
 - **A rejected input fails the statement.** The error names the function, and the rest of the query is not
   evaluated. A value that is merely unusable is not an error anywhere here — it gets an answer.
-- **Constants are folded into one execution.** `SELECT op_open_path('report.html')` runs once. As soon as
-  the argument comes from a column the call runs per row, so `SELECT op_open_path(p) FROM reports` opens one
-  window per row, with no deduplication. `op_write_file` per row means one file per row, which is what the
-  generated name is for.
+- **One call is one row, always.** Every function here that touches the outside world is registered volatile,
+  so DuckDB neither folds a constant-argument call into a single execution nor caches it:
+  `SELECT op_open_path('report.html')` opens one window, and adding `FROM reports` makes it one per row — a
+  constant argument behaves exactly like a column one. `op_write_file` per row means one file per row, which
+  is what the generated name is for. Nothing runs while a query is being planned either, so
+  `EXPLAIN SELECT op_write_file(…)` writes no file.
 - **The list keeps its type.** `op_open_commands` returns `VARCHAR[]`, so its elements carry the quoting they
   are launched with; index into it (`op_open_commands('report.html')[1]`) or `unnest` it for one command per
   row.

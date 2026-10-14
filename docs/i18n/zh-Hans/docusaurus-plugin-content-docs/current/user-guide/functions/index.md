@@ -71,15 +71,17 @@ ORDER BY 1, 2;    -- 九个名字，二十一个签名
 - **调用背后得有一台桌面。** 启动器是桌面软件，所以在没有桌面的机器上 —— 服务器、CI runner —— 四个
   `op_open_path` 动作一律答复 `false`，`op_open_content` 和 `op_open_html` 报一句带着它们确实写出的那个
   路径的错误，而 `op_open_commands` 是那个照样能答的调用，它列出这台机器上会依次尝试什么。
-  `op_write_file`、`op_print` 和文件名那两个函数根本不需要桌面。
+  `op_write_file`、`op_print` 和文件名那两个函数根本不需要桌面。这是这个扩展本来的形状，不是管道层的偶然 ——
+  它是给交互式探索用的，DuckDB 被别人嵌进应用里跑的那种情形不在它服务的范围内（见[简介](../intro.md)）。
 - **NULL 进、NULL 出 —— 而且什么都没启动、什么都没落盘。** 三种结果因此读得出来：NULL 就是这一行没有
   输入。对 `op_sanitize_filename` 与 `op_sanitize_filename_check` 来说，它指的是**任何**一个参数是 NULL，那两个
   开关也算。
 - **被拒绝的输入会让整条语句失败。** 报错信息里带函数名，查询剩下的部分不会再执行。而一个「只是不能用」
   的值在这里从来不算错 —— 它会得到一个答案。
-- **常量会被折叠成一次执行。** `SELECT op_open_path('report.html')` 只跑一次。参数一旦来自某一列，调用就
-  按行跑 —— `SELECT op_open_path(p) FROM reports` 一行开一个窗口，不去重。按行跑 `op_write_file` 就是一行
-  一个文件，这正是那套生成名字要应付的。
+- **一次调用就是一行，永远如此。** 这里凡是会碰外面世界的函数都注册成 volatile，所以 DuckDB 既不会把常量
+  参数的调用折叠成一次执行，也不会缓存它：`SELECT op_open_path('report.html')` 开一个窗口，加上 `FROM reports`
+  就变成一行一个 —— 常量参数和列参数的表现完全一样。按行跑 `op_write_file` 就是一行一个文件，这正是那套生成
+  名字要应付的。规划一条查询时也什么都不会发生，所以 `EXPLAIN SELECT op_write_file(…)` 一个文件都不写。
 - **列表带着类型走。** `op_open_commands` 返回 `VARCHAR[]`，所以里面的每一项都保留它被启动时那副引用
   样子；要一条命令一行就取下标（`op_open_commands('report.html')[1]`）或者 `unnest`。
 - **文件名那两个函数在每台机器上答得一样。** 它们里面没有任何东西取决于文件系统、桌面，或者某个窗口

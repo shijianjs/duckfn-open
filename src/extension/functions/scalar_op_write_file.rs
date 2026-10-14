@@ -97,7 +97,8 @@ use crate::extension::writer;
     examples = [
         "SELECT op_write_file('{\"a\":1}', 'json')",
         "SELECT op_write_file(svg, 'svg', {'dir':'./out', 'part':'sales'})"
-    ]
+    ],
+    volatile = true
 )]
 pub(super) fn op_write_file(content: String, extension: String) -> DuckOptionResult<String> {
     write_text(op_write_file::SQL_NAME, &content, &extension, None)
@@ -106,7 +107,7 @@ pub(super) fn op_write_file(content: String, extension: String) -> DuckOptionRes
 /// `op_write_file(content, ext, opts)`：同一名字下带选项的签名。
 ///
 /// The signature of the same name that carries the options.
-#[duck_scalar_function(overloads_name = "op_write_file")]
+#[duck_scalar_function(overloads_name = "op_write_file", volatile = true)]
 pub(super) fn op_write_file_with(
     content: String,
     extension: String,
@@ -137,7 +138,8 @@ pub(super) fn op_write_file_with(
 /// examples (those concatenate and de-duplicate).
 #[duck_scalar_function(
     overloads_name = "op_write_file",
-    example = "SELECT op_write_file(read_blob('logo.png'), 'png')"
+    example = "SELECT op_write_file(read_blob('logo.png'), 'png')",
+    volatile = true
 )]
 pub(super) fn op_write_file_blob(content: DuckBlob, extension: String) -> DuckOptionResult<String> {
     write_bytes(
@@ -151,7 +153,7 @@ pub(super) fn op_write_file_blob(content: DuckBlob, extension: String) -> DuckOp
 /// `op_write_file(blob, ext, opts)`：二进制内容带选项的签名。
 ///
 /// The signature of the same name that carries the options for binary content.
-#[duck_scalar_function(overloads_name = "op_write_file")]
+#[duck_scalar_function(overloads_name = "op_write_file", volatile = true)]
 pub(super) fn op_write_file_blob_with(
     content: DuckBlob,
     extension: String,

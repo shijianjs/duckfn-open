@@ -8,7 +8,8 @@ description: The three ways to install duckfn_open — DuckDB's community reposi
 
 `duckfn_open` needs **DuckDB 1.3 or newer**. It is an ordinary loadable extension, so `INSTALL` and
 `LOAD` are all it takes; there is no separate download, library or setup step. It runs on a machine with a
-desktop — Windows, Linux or macOS — because that is where a launcher lives.
+desktop — Windows, Linux or macOS — because that is where a launcher lives. That is also its scope: it is for
+interactive work, not for DuckDB embedded in an application.
 
 ## From the community repository
 

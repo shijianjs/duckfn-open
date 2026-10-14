@@ -28,6 +28,16 @@ CLI、Python / R 会话与其他 DuckDB 前端接受的都同一份 `.duckdb_ext
   各平台都认的名字，`op_sanitize_filename_check` 只回答它本来是不是这样一个名字。两个都一步都不离开递给
   它们的那个字符串。
 
+## 它是给谁用的
+
+这是个做**交互式探索**的工具：人坐在那台机器前，跑着 DuckDB，想让结果出现在眼前。它调的启动器就是那台
+机器上配好的那个，所以它属于「有人在看着输出」的那些地方 —— CLI、notebook、有人在敲的 Python / R 会话。
+
+DuckDB 被别人嵌进应用里跑的场合，**不是**它要解决的问题。服务器、定时任务、CI runner 里没有桌面可以把文件
+交出去，而一次库调用弹出别人机器上的窗口，也不是调用方想要的：在那里启动那一族一律答复 `false`，
+`op_open_content` 与 `op_open_html` 则报一句带着它们确实写出的那个路径的错误。真要在那种机器上用这个扩展，
+用的是不起进程的那一半 —— `op_write_file`、`op_print` 与文件名那两个函数。
+
 ## 装上它
 
 ```sql
@@ -63,10 +73,14 @@ ORDER BY 1, 2;    -- 九个名字，二十一个签名
 ::::note[关于副作用]
 
 二十一个签名里有九个会起进程，所以把它们放进循环之前值得先问两句：这会开出多少个窗口，以及这条查询跑在
-谁的机器上。参数全是常量的调用会被 DuckDB 折叠成一次执行，所以 `SELECT op_open_path('report.html')` 只开
-一个窗口，而 `SELECT op_open_path(p) FROM reports` 一行开一个 —— 不去重。其余的都不起进程：`op_open_commands`
-只列出启动会依次尝试的那些命令，`op_write_file` 落完盘就停 —— 这正是让你可以自己把路径交给 `op_open_path` 的
-原因 —— `op_print` 只往 stdout 打，而文件名那两个函数一步都离不开递给它们的那个字符串。
+谁的机器上。这些调用**一律按行执行，一次不多一次不少**：DuckDB 既不折叠也不缓存它们，所以「参数是常量」
+救不了你 —— `SELECT op_open_path('report.html')` 开一个窗口，`SELECT op_open_path(p) FROM reports` 一行
+开一个，而 `SELECT op_open_path('report.html') FROM reports` 跟后一种一样。反过来也值钱：既然什么都不被
+折叠，规划一条查询时也就什么都不会发生 —— `EXPLAIN SELECT op_write_file('a', 'txt')` 一个文件都不写。
+
+其余的都不起进程：`op_open_commands` 只列出启动会依次尝试的那些命令，`op_write_file` 落完盘就停 —— 这正是
+让你可以自己把路径交给 `op_open_path` 的原因 —— `op_print` 只往 stdout 打，而文件名那两个函数一步都离不开
+递给它们的那个字符串。
 
 ::::
 

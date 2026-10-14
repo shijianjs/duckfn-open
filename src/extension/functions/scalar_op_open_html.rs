@@ -66,7 +66,8 @@ const HTML_EXTENSION: &str = "html";
     examples = [
         "SELECT op_open_html('<h1>hello</h1>')",
         "SELECT op_open_html(read_text('report.html'))"
-    ]
+    ],
+    volatile = true
 )]
 pub(super) fn op_open_html(content: String) -> DuckOptionResult<String> {
     let path = writer::write(content.as_bytes(), HTML_EXTENSION, None)

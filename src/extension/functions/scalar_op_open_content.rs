@@ -73,7 +73,8 @@ use crate::extension::writer;
     examples = [
         "SELECT op_open_content(read_text('report.html'), 'html')",
         "SELECT op_open_content(svg, 'svg', {'dir':'./out', 'part':'sales'})"
-    ]
+    ],
+    volatile = true
 )]
 pub(super) fn op_open_content(content: String, extension: String) -> DuckOptionResult<String> {
     write_and_open(op_open_content::SQL_NAME, content.as_bytes(), &extension, None)
@@ -82,7 +83,7 @@ pub(super) fn op_open_content(content: String, extension: String) -> DuckOptionR
 /// `op_open_content(content, ext, opts)`：同一名字下带选项的签名。
 ///
 /// The signature of the same name that carries the options.
-#[duck_scalar_function(overloads_name = "op_open_content")]
+#[duck_scalar_function(overloads_name = "op_open_content", volatile = true)]
 pub(super) fn op_open_content_with(
     content: String,
     extension: String,
@@ -111,7 +112,8 @@ pub(super) fn op_open_content_with(
 /// rather than the source's, so two descriptions in one set decide the text by accident.
 #[duck_scalar_function(
     overloads_name = "op_open_content",
-    example = "SELECT op_open_content(logo_blob, 'png')"
+    example = "SELECT op_open_content(logo_blob, 'png')",
+    volatile = true
 )]
 pub(super) fn op_open_content_blob(content: DuckBlob, extension: String) -> DuckOptionResult<String> {
     write_and_open(op_open_content::SQL_NAME, &content.value, &extension, None)
@@ -120,7 +122,7 @@ pub(super) fn op_open_content_blob(content: DuckBlob, extension: String) -> Duck
 /// `op_open_content(blob, ext, opts)`：二进制内容带选项的签名。
 ///
 /// The signature of the same name that carries the options for binary content.
-#[duck_scalar_function(overloads_name = "op_open_content")]
+#[duck_scalar_function(overloads_name = "op_open_content", volatile = true)]
 pub(super) fn op_open_content_blob_with(
     content: DuckBlob,
     extension: String,

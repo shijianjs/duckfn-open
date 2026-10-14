@@ -52,6 +52,26 @@ WHERE function_name LIKE 'op_%';
 ----
 21
 
+# 会碰外面世界的那六个名字注册成 volatile（catalog 里就是 has_side_effects）：它们起进程、落盘、写 stdout，
+# 不能被优化器当成常量折叠 —— 否则一个调用会在优化期先执行一次，被折进别的表达式时再执行一次；纯字符串那一对
+# 与只读预览则不是 volatile，折叠它们没有任何代价。
+query T
+SELECT string_agg(function_name, ',' ORDER BY function_name)
+FROM (
+    SELECT DISTINCT function_name
+    FROM duckdb_functions()
+    WHERE function_name LIKE 'op_%' AND has_side_effects
+) t;
+----
+op_open_content,op_open_html,op_open_path,op_open_path_detached,op_print,op_write_file
+
+query I
+SELECT count(DISTINCT function_name)
+FROM duckdb_functions()
+WHERE function_name LIKE 'op_%' AND NOT has_side_effects;
+----
+3
+
 # 只读预览在本机确实跑通了（这一步不起任何进程）
 query T
 SELECT len(op_open_commands('duckdb_open.test')) > 0;

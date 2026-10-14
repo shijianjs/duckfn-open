@@ -59,7 +59,8 @@ use crate::extension::launcher;
     examples = [
         "SELECT op_open_path('report.html')",
         "SELECT op_open_path('https://duckdb.org', 'firefox')"
-    ]
+    ],
+    volatile = true
 )]
 pub(super) fn op_open_path(path: String) -> DuckOptionResult<bool> {
     launcher::check_not_empty(op_open_path::SQL_NAME, "path or URL", &path)?;
@@ -83,7 +84,7 @@ pub(super) fn op_open_path(path: String) -> DuckOptionResult<bool> {
 /// existence — a program that cannot be started is a false. It cannot quote arguments for a custom
 /// program either (choosing an app means accepting its command-line grammar), so an app that comes from
 /// untrusted data deserves a thought before this call.
-#[duck_scalar_function(overloads_name = "op_open_path")]
+#[duck_scalar_function(overloads_name = "op_open_path", volatile = true)]
 pub(super) fn op_open_path_with(path: String, app: String) -> DuckOptionResult<bool> {
     launcher::check_not_empty(op_open_path_with::SQL_NAME, "path or URL", &path)?;
     launcher::check_not_empty(op_open_path_with::SQL_NAME, "application", &app)?;
@@ -111,7 +112,8 @@ pub(super) fn op_open_path_with(path: String, app: String) -> DuckOptionResult<b
     description = "Opens a local path or URL and returns as soon as the launcher is started",
     comment = "The non-blocking pair of op_open_path: true means a process was started, not that the \
                target opened",
-    example = "SELECT op_open_path_detached('https://duckdb.org')"
+    example = "SELECT op_open_path_detached('https://duckdb.org')",
+    volatile = true
 )]
 pub(super) fn op_open_path_detached(path: String) -> DuckOptionResult<bool> {
     launcher::check_not_empty(op_open_path_detached::SQL_NAME, "path or URL", &path)?;
@@ -121,7 +123,7 @@ pub(super) fn op_open_path_detached(path: String) -> DuckOptionResult<bool> {
 /// `op_open_path_detached(path, app)`：同一名字下指定程序的签名。
 ///
 /// The signature of the same name that picks the program.
-#[duck_scalar_function(overloads_name = "op_open_path_detached")]
+#[duck_scalar_function(overloads_name = "op_open_path_detached", volatile = true)]
 pub(super) fn op_open_path_detached_with(path: String, app: String) -> DuckOptionResult<bool> {
     launcher::check_not_empty(op_open_path_detached_with::SQL_NAME, "path or URL", &path)?;
     launcher::check_not_empty(op_open_path_detached_with::SQL_NAME, "application", &app)?;

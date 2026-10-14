@@ -378,7 +378,7 @@
     "description": "Home page feature card title"
   },
   "homepage.features.platforms.details": {
-    "message": "每个版本按桌面平台各挂一份 .duckdb_extension，LOAD 可以直接按 URL 取这个文件。没有 WebAssembly 构建 —— 启动器是桌面软件。",
+    "message": "每个版本按桌面平台各挂一份 .duckdb_extension，可以直接按 URL 加载。没有 WebAssembly 构建 —— 启动器要的是一台有人的桌面，这正是这个扩展的定位：交互式查询，而不是嵌进应用里的 DuckDB。",
     "description": "Home page feature card description"
   },
   "homepage.features.versions.title": {

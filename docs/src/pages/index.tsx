@@ -280,7 +280,7 @@ function featuresContent(): FeaturesContent {
           id: 'homepage.features.platforms.details',
           description: 'Home page feature card description',
           message:
-            'Each release carries one .duckdb_extension per desktop platform, and LOAD takes the file straight from its URL. There is no WebAssembly build: a launcher is desktop software.',
+            'Each release carries one .duckdb_extension per desktop platform, loadable straight from its URL. There is no WebAssembly build \u2014 a launcher needs a desktop with someone at it, which is the situation this extension is for: interactive queries, not DuckDB embedded in an application.',
         }),
       },
       {

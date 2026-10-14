@@ -57,6 +57,14 @@ SQL-side semantics of every row below — what each value means to a caller — 
 | `op_sanitize_filename_check` | `VARCHAR -> BOOLEAN` | `op_sanitize_filename_check` | `scalar_op_sanitize_filename.rs` | Rewrites nothing: is this already a usable name? |
 | `op_sanitize_filename_check` | `VARCHAR, BOOLEAN, BOOLEAN -> BOOLEAN` | `op_sanitize_filename_check_with_options` | `scalar_op_sanitize_filename.rs` | Same question, with the two switches. |
 
+Six of the nine names touch the outside world — `op_open_path`, `op_open_path_detached`, `op_write_file`,
+`op_open_content`, `op_open_html`, `op_print`, fifteen signatures — and every one of their attributes carries
+`volatile = true`. `op_open_commands` and the two `op_sanitize_filename*` names are pure and stay foldable.
+Without the flag DuckDB folds a constant-argument call into a constant **during optimization**, so a call that
+another expression then consumes is evaluated twice (two files, two prints), and `EXPLAIN` performs the side
+effect without running the statement at all. Root `AGENTS.md` has the long version; `duckfn_open.test` pins the
+roster through `has_side_effects`.
+
 `NULL` in and nothing runs: a `NULL` path launches nothing, a `NULL` content writes no file, a `NULL` text
 prints nothing, a `NULL` in any argument of the `op_sanitize_filename` pair rewrites nothing on that row — and the
 answer is `NULL` either way, which is how SQL tells "no input on this row" apart from "no launcher could be

@@ -16,8 +16,12 @@ SELECT op_write_file(csv, 'csv');                      -- 内容：落成文件�
 SELECT op_print(chart);                           -- 内容：直接进 stdout，绕开结果集的排版
 ```
 
-两半都面向在 DuckDB 会话里探索，不是把启动器嵌进生产程序；内容这一半是把那段落盘的活儿只写一遍，
-做成通用的「内容 → 一个能看它的地方」，而不是每个扩展各抄一份。
+它的方向是**交互式探索**：人坐在那台机器前，跑着 DuckDB，想让结果出现在看得见的地方。它调的启动器就是
+那台机器上配好的那个，这也正是它不适合被嵌进一个应用里的原因 —— DuckDB 无头跑的地方（服务器、定时任务、
+CI runner）没有桌面可以把文件交出去，而一次库调用弹出别人机器上的窗口，不是调用方想要的东西。两半里，
+不起进程的那一半（`op_write_file`、`op_print` 与两个 `op_sanitize_filename` 名字）才是那边还讲得通的。
+
+内容那一半是把那段落盘的活儿只写一遍，做成通用的「内容 → 一个能看它的地方」，而不是每个扩展各抄一份。
 
 还有第三族站在这两步之外，它什么都不往人眼前送：`op_sanitize_filename` 与 `op_sanitize_filename_check` 把一个字符串
 改写成能当文件名用的样子，或者回答它本来是不是。不起进程、不碰文件、连路径都不要 —— 这两个名字把
@@ -151,10 +155,11 @@ SELECT op_open_commands('report.html');
 先看得一眼。
 
 `op_print` 存在的理由是结果集做不到的一件事。DuckDB 的 CLI 会把结果**排版** —— 列宽、边框、折行 ——
-而字符画（`textplot` 那类扩展返回成一个 VARCHAR 的 ASCII/盲文图）靠逐行对齐来读，塞进一个单元格就全散了。
-内容原样写到 stdout，每次调用都 flush，因为 Rust 的 stdout 是按行缓冲的；`tail` 取代默认追加的那个换行 ——
-`''` 是「接着同一行打」，`chr(10) || chr(10)` 是「空一行再打」。回来的就是同一段文本，所以这个调用可以留在
-投影里；也正因为留着，结果集里会多出一份被排版过的副本 —— 只想让控制台看见它，就把它放进 `WHERE` 里。
+而字符画（`textplot` 那类扩展返回成一个 VARCHAR 的 ASCII/盲文图，或者一个二维码）靠逐行对齐来读，塞进一个
+单元格就全散了。内容原样写到 stdout，每次调用都 flush，因为 Rust 的 stdout 是按行缓冲的；`tail` 取代默认
+追加的那个换行 —— `''` 是「接着同一行打」，`chr(10) || chr(10)` 是「空一行再打」。回来的就是同一段文本，
+所以这个调用可以留在投影里；值本身就是那幅图时（二维码），结果集里那一份折一下就行 ——
+`SELECT length(op_print(tp_qr(url)))` 打出那个码，回一个数字。
 
 ### 文件名这一族守的规则
 
@@ -219,9 +224,10 @@ SELECT count(*) FROM files WHERE NOT op_sanitize_filename_check(name);
   通常要到目标程序退出才返回。Windows 上（依赖里那个 `shellexecute-on-windows` feature）
   `op_open_path_detached` 反而是更直接的一条路：一次原生 API 调用，而不是「PowerShell 辅助进程 +
   explorer.exe 后备」；
-- 参数全是常量的调用可能被 DuckDB 折叠成一次执行，所以 `SELECT op_open_path('report.html')` 只开一个窗口、
-  `SELECT op_print('x')` 只打一行，而 `SELECT op_open_path(p) FROM reports` 一行开一个 —— 不去重。
-  真要每行一次就在参数里带上列引用（`op_print('x: ' || a)`）；对 `op_write_file` 来说「一行一个文件」正是
+- 凡是会碰外面世界的名字都注册成 **volatile**：一次调用就是一行，既不折叠也不缓存 ——
+  `SELECT op_open_path('report.html')` 开一个窗口，`SELECT op_open_path(p) FROM reports` 一行开一个，
+  常量参数和列参数的表现完全一样。规划一条查询时也不会执行到它们，所以
+  `EXPLAIN SELECT op_write_file('a', 'txt')` 一个文件都不写。对 `op_write_file` 来说，「一行一个文件」正是
   自动命名要解决的问题。
 
 空的路径、空的程序名、空的后缀、用不了的选项值都是错误，而不是一个 `false` 或者一次静默的缺省 ——

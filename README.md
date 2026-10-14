@@ -19,9 +19,15 @@ SELECT op_write_file(csv, 'csv');                      -- content: a file, its p
 SELECT op_print(chart);                           -- content: stdout, past the result set's layout
 ```
 
-Both halves are aimed at exploring inside a DuckDB session, not at embedding a launcher in a production
-program; the content half is that persistence step written once, as a general "content → somewhere you
-can look at it" instead of a copy per extension.
+Its direction is **interactive exploration**: a person is at the machine, running DuckDB, and wants the result
+where they can look at it. The launcher it calls is the one configured on that same machine, which is also why
+this is nothing to embed in an application — where DuckDB runs headless (a server, a scheduled job, a CI
+runner) there is no desktop to hand a file to, and a library call that pops a window on somebody's machine is
+not what the caller asked for. Of the two halves, the one that starts no process (`op_write_file`, `op_print`
+and the two `op_sanitize_filename` names) is what still makes sense there.
+
+The content half is that persistence step written once, as a general "content → somewhere you can look at it"
+instead of a copy per extension.
 
 A third family stands outside both steps and gets nothing in front of anyone: `op_sanitize_filename` and
 `op_sanitize_filename_check` turn a string into something usable as a file name, or answer whether it already
@@ -169,13 +175,13 @@ the same reason: `op_open_path(op_write_file(html, 'html'), 'firefox')` already 
 so you can check it before opening anything.
 
 `op_print` exists for the one thing a result set cannot do. The DuckDB CLI *lays out* its results —
-column widths, borders, wrapping — and character art (the ASCII or braille charts a `textplot`-style
-extension returns as a VARCHAR) is read line by line, so putting it in one cell destroys it. The text goes
-to stdout exactly as it is, flushed on every call because Rust buffers stdout by line; `tail` replaces
-the newline that is appended by default — `''` means "keep going on this line",
-`chr(10) || chr(10)` means "leave a blank line". What it returns is that same text, so the call can stay in
-a projection; because it does, the laid-out copy lands in the result set as well, and a call that should
-reach only the console belongs in a `WHERE` clause instead.
+column widths, borders, wrapping — and character art (the ASCII or braille charts, or QR codes, that a
+`textplot`-style extension returns as a VARCHAR) is read line by line, so putting it in one cell destroys it.
+The text goes to stdout exactly as it is, flushed on every call because Rust buffers stdout by line; `tail`
+replaces the newline that is appended by default — `''` means "keep going on this line",
+`chr(10) || chr(10)` means "leave a blank line". What it returns is that same text, so the call can stay in a
+projection — and where the value *is* the picture (a QR code), the laid-out copy in the result set is worth
+collapsing: `SELECT length(op_print(tp_qr(url)))` prints the code and answers with a number.
 
 ### The rules the filename pair follows
 
@@ -246,11 +252,11 @@ Two things apply to every name:
   On Windows, with the `shellexecute-on-windows` feature of `open` turned on, `op_open_path_detached` is
   the more direct route (one native API call instead of a PowerShell helper plus an `explorer.exe`
   fallback);
-- DuckDB may fold a call whose arguments are all constants into a single execution, so
-  `SELECT op_open_path('report.html')` opens one window and `SELECT op_print('x')` prints one line, while
-  `SELECT op_open_path(p) FROM reports` opens one per row — there is no deduplication. Put a column
-  reference in the argument (`op_print('x: ' || a)`) when you do want one call per row; for
-  `op_write_file` one file per row is exactly what the generated name is for.
+- every name that touches the outside world is registered **volatile**, so one call is one row and nothing
+  is folded or cached: `SELECT op_open_path('report.html')` opens one window and `SELECT op_open_path(p) FROM
+  reports` opens one per row, and a constant argument behaves exactly like a column one. Planning a query
+  does not run any of it either, so `EXPLAIN SELECT op_write_file('a', 'txt')` writes no file. For
+  `op_write_file`, one file per row is what the generated name is for.
 
 An empty path, an empty program name, an empty extension and an unusable option are errors rather than a
 `false` or a silent default — a typo and an unopenable file deserve different answers. DuckDB reports an

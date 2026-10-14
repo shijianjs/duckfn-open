@@ -6,6 +6,7 @@ extension:
   build: cargo
   license: MIT
   requires_toolchains: "rust;python3"
+  excluded_platforms: "wasm_mvp;wasm_eh;wasm_threads"
   maintainers:
     - shijianjs
 
@@ -31,6 +32,12 @@ docs:
     configuration opens that kind of thing with — the system default program, or one you name. The value
     goes to the platform launcher (ShellExecute on Windows, `/usr/bin/open` on macOS, `xdg-open` and its
     fallbacks on Unix); DuckDB reads, copies, or interprets nothing itself.
+
+    It is aimed at interactive work: a person is at the machine, running DuckDB, and wants the result where
+    they can look at it. A launcher is desktop software, so DuckDB embedded in an application is outside what
+    this is for — on a headless server the launch functions answer `false` (and `op_open_content` /
+    `op_open_html` raise an error carrying the path they wrote), and only the half that starts no process is
+    of any use there.
 
     The API has two halves — plus a pair of pure-string functions that belongs to neither — because most of
     what a query produces is content rather than a path:
@@ -65,9 +72,10 @@ docs:
     suffix with the guarantee that a generated name overwrites nothing is `tempfile`'s.
 
     `op_print` is for the output the CLI's result formatting destroys: character art read line by line,
-    such as the ASCII or braille charts a plotting extension produces, which would otherwise arrive
-    wrapped into a single VARCHAR cell. It writes to stdout as it is and hands the same text back, so the
-    call can stay in a projection — where the laid-out copy then appears too.
+    such as the ASCII or braille charts, or the QR codes, a textplot-style extension produces, which would
+    otherwise arrive wrapped into a single VARCHAR cell. It writes to stdout as it is and hands the same
+    text back, so the call can stay in a projection; where the value *is* the picture, wrapping it —
+    `SELECT length(op_print(tp_qr(url)))` — keeps the console copy and leaves a number in the result set.
 
     `op_open_commands` is the read-only entry point: it lists, in the order the crate would try them, the
     launchers this machine would use, so "nothing opened" can be diagnosed without a desktop. Its result

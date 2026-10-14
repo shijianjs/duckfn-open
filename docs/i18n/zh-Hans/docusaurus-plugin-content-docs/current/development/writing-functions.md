@@ -53,6 +53,13 @@ flowchart LR
 | `op_sanitize_filename_check` | `VARCHAR -> BOOLEAN` | `op_sanitize_filename_check` | `scalar_op_sanitize_filename.rs` | 什么都不改写：这个字符串本来就是一个可用的名字吗？ |
 | `op_sanitize_filename_check` | `VARCHAR, BOOLEAN, BOOLEAN -> BOOLEAN` | `op_sanitize_filename_check_with_options` | `scalar_op_sanitize_filename.rs` | 同一个问题，带上那两个开关。 |
 
+九个名字里有六个会碰外面世界 —— `op_open_path`、`op_open_path_detached`、`op_write_file`、
+`op_open_content`、`op_open_html`、`op_print`，十五个签名 —— 它们的属性上全都写了 `volatile = true`；
+`op_open_commands` 与两个 `op_sanitize_filename*` 是纯函数，保持可折叠。没有这个标志时，DuckDB 会在**优化期**
+把「参数全是常量」的调用折成常量：这个调用如果又被别的表达式吃掉，就会被求值两次（两个文件、两遍打印），而
+`EXPLAIN` 会在不执行语句的情况下把副作用做掉。完整理由在根 `AGENTS.md`，名单则由 `duckfn_open.test` 用
+`has_side_effects` 钉住。
+
 传 `NULL` 就什么都不跑：`NULL` 的路径不叫启动器，`NULL` 的内容不落盘，`NULL` 的文本不打，
 `op_sanitize_filename` 那一族的任何一个参数是 `NULL` 就这一行不改写 —— 答复一律是 `NULL`。SQL 因此能把
 「这一行没有输入」和「这台机器起不动启动器」（`false`）、和一个真的写出来的路径分开；对

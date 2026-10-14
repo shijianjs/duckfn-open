@@ -158,6 +158,46 @@ SELECT hex(content) FROM read_blob('__TEST_DIR__/blob/magic.png');
 89504E47
 
 # ============================================================================
+# 求值次数：一个调用只写一个文件，折进别的表达式、或在 EXPLAIN 里也一样
+# ============================================================================
+
+# 这一族注册成 volatile（目录断言在 duckfn_open.test），所以它既不会被优化器折成常量、也不会在分析查询时
+# 先跑一遍。下面的文件数就是这件事唯一可数的证据 —— 没有 volatile 时，折进 length(...) 会写两个文件，
+# 而 EXPLAIN 会写一个。
+
+# 折进别的表达式也只写一个文件
+query T
+SELECT length(op_write_file('body', 'txt', {'dir':'__TEST_DIR__/once','name':NULL,'part':NULL})) > 0;
+----
+true
+
+query I
+SELECT count(*) FROM glob('__TEST_DIR__/once/*');
+----
+1
+
+# 常量参数不再被折成一次：三行就是三个文件
+query I
+SELECT count(*) FROM (VALUES (1), (2), (3)) t(x)
+WHERE length(op_write_file('body', 'txt', {'dir':'__TEST_DIR__/each','name':NULL,'part':NULL})) > 0;
+----
+3
+
+query I
+SELECT count(*) FROM glob('__TEST_DIR__/each/*');
+----
+3
+
+# 分析一条会落盘的查询，一个文件也不该落下来
+statement ok
+EXPLAIN SELECT op_write_file('body', 'txt', {'dir':'__TEST_DIR__/explain','name':NULL,'part':NULL});
+
+query I
+SELECT count(*) FROM glob('__TEST_DIR__/explain/*');
+----
+0
+
+# ============================================================================
 # 选项校验：错误要说清是哪一项
 # ============================================================================
 

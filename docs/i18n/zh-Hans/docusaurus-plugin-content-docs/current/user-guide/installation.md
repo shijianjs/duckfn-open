@@ -8,7 +8,7 @@ description: 装 duckfn_open 的三条路 —— DuckDB 社区仓、GitHub Relea
 
 `duckfn_open` 需要 **DuckDB 1.3 或更新**。它是一个普通的可加载扩展，`INSTALL` 与 `LOAD` 就是全部；
 没有额外的下载、库文件或配置步骤。它跑在一台有桌面的机器上 —— Windows、Linux 或 macOS —— 因为启动器
-就在那里。
+就在那里。这也划定了它的范围：它是给交互式探索用的，不是给嵌进应用里的 DuckDB 用的。
 
 ## 从社区仓安装
 

@@ -1,5 +1,5 @@
 # name: test/sql/op_print.test
-# description: op_print：注册形状、返回原文本、逐行求值、NULL 短路
+# description: op_print：注册形状、返回原文本、逐行求值（volatile）、NULL 短路
 # group: [duckfn_open]
 
 # 这个函数是唯一可以**真的调用**的：它不起进程、不碰文件系统，只往 stdout 写。写出去的那段文字落在
@@ -61,10 +61,17 @@ SELECT length(op_print('abc', chr(10) || chr(10)));
 ----
 3
 
-# 逐行求值，所以三行打三次、三次都回原文本。参数里带上列引用（`'row ' || x`）而不是常量 ——
-# 常量表达式会被折叠，那种写法只打一次，看不出「每行一次」。
+# 逐行求值：三行打三次、三次都回原文本。这一族注册成 volatile（目录断言在 duckfn_open.test），所以常量
+# 参数也不会被折成一次调用。打印次数在 sqllogictest 里数不出来（那些字落在运行器自己的控制台上，不进结果集），
+# 真正数次数的是 op_write_file.test 里那几段文件数断言。
 query I
 SELECT count(*) FROM (VALUES (1), (2), (3)) t(x) WHERE op_print('row ' || x) IS NOT NULL;
+----
+3
+
+# 常量参数同样按行走 —— 这是 volatile 的直接后果，也是「折进别的表达式就会打两次」那个 bug 的另一面
+query I
+SELECT count(*) FROM (VALUES (1), (2), (3)) t(x) WHERE op_print('constant') IS NOT NULL;
 ----
 3
 

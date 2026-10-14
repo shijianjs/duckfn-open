@@ -88,6 +88,7 @@ flowchart LR
 | `extension.language` / `build` | 从本模板起步的项目就是 `Rust` 与 `cargo`。 |
 | `extension.license` | `MIT`（对应仓库根目录的 `LICENSE`）。注意社区**文档页**把它写成 `licence`，真实 schema 是 `license`。 |
 | `extension.requires_toolchains` | `"rust;python3"` —— 与 CI 工作流的 `extra_toolchains` 一致。 |
+| `extension.excluded_platforms` | `"wasm_mvp;wasm_eh;wasm_threads"` —— 这个扩展只面向桌面（`open` 在 emscripten 上编不过），而社区仓的构建跑的是它自己那份矩阵、从不读本仓的 `exclude_archs`。 |
 | `extension.maintainers` | 你的 GitHub 账号。 |
 | `repo.github` | `owner/repository`。 |
 | `repo.ref` | 发布那一版的**提交 SHA**（40 位）—— `git rev-list -n 1 v0.1.0` —— 不要写 `main`，也不要写 tag 名。注册项指向的应当是不可变的代码，而从分支构建出的产物会自称开发版本。 |

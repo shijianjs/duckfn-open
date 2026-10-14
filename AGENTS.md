@@ -22,7 +22,12 @@ AGENTS.md（duckfn-extension-template 自带的那一份）：克隆模板后**�
   能力原样接到 SQL 上（不是 `op_write_file` 的助手，缺省跟着库走，只有 `windows` 钉成 `true`）。
   九个 SQL 名字、二十一个签名，全是标量函数，没有聚合与表函数；此外注册一个 STRUCT 类型
   `op_write_file_options(dir, name, part)` 承载落盘的三个可选项。平台差异集中在
-  `src/extension/launcher.rs`，落盘与命名规则集中在 `src/extension/writer.rs`。**只构建桌面平台**：启动器
+  `src/extension/launcher.rs`，落盘与命名规则集中在 `src/extension/writer.rs`。
+  **它面向的是交互式探索**：人坐在跑查询的那台机器前，启动器就是那台机器上配好的那个，所以它属于 CLI /
+  notebook / 有人在敲的会话；把 DuckDB 嵌进应用里跑的场景不在它服务的范围内 —— 那里只有不起进程的那一半
+  （`op_write_file`、`op_print` 与文件名那一对）还有意义，库调用弹窗不是调用方想要的。这条定位写在用户指南
+  的简介页、`community-extension/description.yml` 与首页那张平台卡里，改这个扩展时别把它往「库调用会弹窗」
+  的方向推。**只构建桌面平台**：启动器
   是桌面软件，这个扩展没有 wasm 目标（见下面「排除 wasm 构建」）。
 - 本仓库来自 [duckfn-extension-template](https://github.com/shijianjs/duckfn-extension-template)：
   克隆后第一件事是 `just rename <新扩展名>`（见下面「扩展名与改名」）。
@@ -166,6 +171,7 @@ README 里出现的路径示例，并把 `Cargo.lock` 按新包名重写；脚�
 | `Cargo.toml` | 没有 wasm 的 `[[example]]`（模板里那份 staticlib 转发）；`open` 是普通 `[dependencies]` 项，没有 `[target.'cfg(not(…))'.dependencies]` 门控 |
 | `src/` | 只有一个 crate root `src/lib.rs`（模板里的 `src/wasm_lib.rs` 已删除），`launcher.rs` 里没有任何 `#[cfg(target_arch = "wasm32")]` 替身 |
 | `.github/workflows/MainDistributionPipeline.yml` | 传 `exclude_archs: 'wasm_mvp;wasm_eh;wasm_threads'`，Release 只有原生平台资产 |
+| `community-extension/description.yml` | 注册进社区仓的那份单独写 `excluded_platforms: "wasm_mvp;wasm_eh;wasm_threads"` —— 社区仓的构建跑它自己那份矩阵，不读本仓的 `exclude_archs` |
 | `Justfile` | 覆盖共享的 `build_wasm` / `build_wasm_eh` / `test_wasm`，跑它们只打印一句说明（共享副本 `scripts/common.just` 不动，见下面「共享 justfile」） |
 | `docs/` | 没有可运行 SQL 块：`docusaurus.config.ts` 去掉了 `remarkRunnableSql` 与 `dfkExtensions` 的 `preload`，`playwright.config.mts` / `docs/tests/` / `npm test` 一并删除，站上的 sql 围栏都是静态代码块 |
 
@@ -217,6 +223,23 @@ duckfn 的属性宏默认拿 **Rust 函数名**当注册名，所以直接把函
 不要再抄一份字面量。代价是这类函数得写成 `pub(super)`，因为生成的模块沿用函数的可见性。
 `overloads_name` 能把「同一名字下按参数个数/类型分派」的多个签名并成一个函数集，需要时再用
 （见 duckfn 的文档）。
+
+### 会碰外面世界的函数一律注册成 `volatile = true`
+
+`op_open_path`、`op_open_path_detached`、`op_write_file`、`op_open_content`、`op_open_html`、`op_print`
+—— 九个名字里的六个（十五个签名）—— 属性上都写了 `volatile = true`。`op_open_commands` 与两个
+`op_sanitize_filename*` 不写：它们是纯函数，被折成一个常量没有代价。
+
+**为什么必须写**：不写，DuckDB 会把「参数全是常量」的调用折成常量，而折叠发生在**优化期**，也就是执行之前先
+跑一遍；折出来的常量如果又被别的表达式吃掉，执行期会再求值一次。于是
+`SELECT length(op_write_file('a', 'txt'))` 落两个文件、`SELECT length(op_print(tp_qr(url)))` 打两遍二维码，
+而 `EXPLAIN SELECT op_write_file('a', 'txt')` 会**真的写一个文件** —— 只分析不执行的查询不该有副作用。写上
+volatile 之后这些都没了：一次调用就是一行，不多不少，规划期一次都不碰外面。
+
+代价是「常量参数只执行一次」那点便利也没了：`SELECT op_open_path('report.html') FROM reports` 会一行开一个
+窗口。这才是对的语义（它本来就是逐行的标量函数），但**别在文档或提示里承诺「常量只跑一次」**；用户指南、README
+与社区页那份 `description.yml` 都已经按这个说法改过。目录层面的回归断言在 `test/sql/duckfn_open.test`
+（`has_side_effects` 名单），求值次数则靠 `test/sql/op_write_file.test` 里的文件数。
 
 ### 文档站（docs/）
 

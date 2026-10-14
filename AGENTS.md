@@ -15,8 +15,8 @@ AGENTS.md（duckfn-extension-template 自带的那一份）：克隆模板后**�
   `op_open_commands(path)` 只列出会依次尝试的启动命令、不起任何进程；
   `op_write_file(content|blob, ext[, opts])` 把一段内容落盘、只回路径（不起进程，好和其它 path 函数拼），
   `op_open_content(...)` 落盘后立刻用默认程序打开（就是前两者的合成），`op_open_html(content)` 是它零配置的
-  HTML 特例，`op_print(text[, tail])` 绕过结果集直接写到 stdout —— 字符画这类被 CLI 排版一下就散的
-  东西走这条路；另有一族**纯字符串**函数与上面都无关：`op_sanitize_filename(value[, replacement[, truncate,
+  HTML 特例，`op_print(text[, tail])` 绕过结果集直接写到 stdout、再把那段文本原样返回 —— 字符画这类被 CLI
+  排版一下就散的东西走这条路；另有一族**纯字符串**函数与上面都无关：`op_sanitize_filename(value[, replacement[, truncate,
   windows]])` 改写成一个可用的文件名，`op_sanitize_filename_check(value[, truncate, windows])` 只回答它本来就
   合不合法，这两个名字是把 [sanitize-filename](https://crates.io/crates/sanitize-filename) 这个库的
   能力原样接到 SQL 上（不是 `op_write_file` 的助手，缺省跟着库走，只有 `windows` 钉成 `true`）。

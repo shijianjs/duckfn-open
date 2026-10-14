@@ -139,13 +139,14 @@ SELECT op_open_path('');    -- error: the path or URL must not be empty
 ```
 
 The write family answers the same way on every machine, because it needs no desktop at all: `op_write_file`
-returns the path it wrote and starts nothing, `op_print` puts the text on the console and returns `NULL`.
+returns the path it wrote and starts nothing, `op_print` puts the text on the console and hands the same
+text back.
 
 ```sql
 SELECT op_write_file('report body', 'md', {'dir':'./out', 'name':'report', 'part':NULL});
 -- ./out/report.md — a missing directory is created, nothing is started
 
-SELECT op_print('row ' || x) FROM range(3) t(x);  -- three lines on the console, three NULLs in SQL
+SELECT op_print('row ' || x) FROM range(3) t(x);  -- three lines on the console, three rows of text in SQL
 ```
 
 The filename pair asks for even less — one string in, a string or a `BOOLEAN` out, no desktop and no file

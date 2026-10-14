@@ -77,7 +77,7 @@ SELECT op_open_commands('report.html');
 | `op_write_file` | `(content, ext)`、`(content, ext, opts)`，`BLOB` 同样两个形式 | `VARCHAR` —— 写好的路径；不起任何进程 |
 | `op_open_content` | 同样的四个 | `VARCHAR` —— 那个路径，此时默认程序已经把它显示出来了 |
 | `op_open_html` | `(content)` | `VARCHAR` —— 零配置的那一种：临时 `.html` 进默认浏览器 |
-| `op_print` | `(text)`、`(text, tail)` | `VARCHAR` —— 恒为 NULL；内容已经打到 stdout 了 |
+| `op_print` | `(text)`、`(text, tail)` | `VARCHAR` —— 递进去的那段文本；顺手打到了 stdout |
 
 `op_open_content` 就是 `op_write_file` 与 `op_open_path` 的合成，之所以给它一个名字，是因为「写完就打开」是探索时
 最常做的事；`op_open_html` 则是 `op_open_content(content, 'html')` 把三个可选项全按缺省走 —— 因为 SQL 渲染出来的
@@ -116,7 +116,7 @@ SELECT op_open_commands('report.html');
   起不来时给的**不是** `op_open_path` 会答的那个 `false`，而是**带着路径的报错** —— 文件确实在磁盘上，
   只是这台机器没有东西能把它显示出来。这一步走的是**不等**的那条路（`open::that_detached`）：
   写完一张图再打开它，不该被「等查看器关掉」挂住；
-- `op_print` 永远回 NULL：内容已经在控制台上了，SQL 这一侧没有值可给。
+- `op_print` 回的是递进去的那段文本：它原样上了控制台，而值本身也留在了 SQL 这一侧。
 
 **文件名这一族**回的是一个字符串或一个 BOOLEAN，再没有别的：任何一格参数是 NULL 就整行 NULL ——
 这一族没有缺省值可猜 —— 也没有「值不对」这种报错，因为这里没有哪种值是错的。什么都留不下的名字照样
@@ -153,7 +153,8 @@ SELECT op_open_commands('report.html');
 `op_print` 存在的理由是结果集做不到的一件事。DuckDB 的 CLI 会把结果**排版** —— 列宽、边框、折行 ——
 而字符画（`textplot` 那类扩展返回成一个 VARCHAR 的 ASCII/盲文图）靠逐行对齐来读，塞进一个单元格就全散了。
 内容原样写到 stdout，每次调用都 flush，因为 Rust 的 stdout 是按行缓冲的；`tail` 取代默认追加的那个换行 ——
-`''` 是「接着同一行打」，`chr(10) || chr(10)` 是「空一行再打」。
+`''` 是「接着同一行打」，`chr(10) || chr(10)` 是「空一行再打」。回来的就是同一段文本，所以这个调用可以留在
+投影里；也正因为留着，结果集里会多出一份被排版过的副本 —— 只想让控制台看见它，就把它放进 `WHERE` 里。
 
 ### 文件名这一族守的规则
 
@@ -266,7 +267,7 @@ just ci-build      # 只跑官方构建流程，不跑测试
 桌面的那部分：`duckdb_functions()` 里注册的签名形状、NULL 短路、参数校验（包括那些在落盘**之前**就返回
 错误的检查）、不起任何进程的 `op_open_commands` 预览，以及整套落盘本身 —— `op_write_file` 写出去的文件用
 `read_text` / `read_blob` 读回来逐个验（命名、建目录、BLOB 字节原样往返、非法字符替换、同名覆盖），
-`op_print` 是真的被调用、断言它答 NULL。`op_open_content` 与 `op_open_html` 走的是同一个 `writer::write`，
+`op_print` 是真的被调用、断言它回的是它打出去的那段文本。`op_open_content` 与 `op_open_html` 走的是同一个 `writer::write`，
 所以它们的测试留在 catalog 一侧，只跑那些到不了 launch 那一步的调用。`op_sanitize_filename` 那一族既不碰桌面
 也不碰磁盘，所以它的测试逐字断言每一次改写：库的六条规则一条条对、这个 API 刻意不给的那一档参数个数
 （`op_sanitize_filename(x, '_', true)` 是个 binder error）、以及判断与改写在同样的开关下始终对得上。
@@ -319,5 +320,5 @@ LOAD 'https://github.com/shijianjs/duckfn-open/releases/latest/download/duckfn_o
 | [AGENTS.md](AGENTS.md) | 仓库约定、duckfn 知识地图、发版流程 |
 | [docs/docs/development/](docs/docs/development/quick-start.md) | 开发指南：目录结构、写函数与测试、构建与发版（中英各一份） |
 | [docs/README.md](docs/README.md) | 文档站：布局、命令、翻译、部署 |
-| [docs/docs/user-guide/functions.md](docs/docs/user-guide/functions.md) | 逐个名字的签名与示例（最详尽的一份） |
+| [docs/docs/user-guide/functions/](docs/docs/user-guide/functions/index.md) | 函数参考：逐个名字的签名与示例，按组分成几页 |
 | [README.md](README.md) | this file, in English |

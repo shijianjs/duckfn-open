@@ -1,10 +1,11 @@
 # name: test/sql/op_print.test
-# description: op_print：注册形状、返回 NULL、逐行求值、NULL 短路
+# description: op_print：注册形状、返回原文本、逐行求值、NULL 短路
 # group: [duckfn_open]
 
 # 这个函数是唯一可以**真的调用**的：它不起进程、不碰文件系统，只往 stdout 写。写出去的那段文字落在
-# 测试运行器自己的控制台里，不进结果集，所以断言只能盯着它的 SQL 结论 —— 恒为 NULL。
-# （在 CLI 里手跑一遍才看得到效果：内容绕过了列宽与折行，这正是它存在的理由。）
+# 测试运行器自己的控制台里，不进结果集，所以断言盯着的是它回了什么 —— 回的正是递进去的那段文本，打印
+# 只是这次调用的副作用。
+# （在 CLI 里手跑一遍才看得到效果：内容绕过了列宽与折行。）
 
 require duckfn_open
 
@@ -29,37 +30,49 @@ WHERE function_name = 'op_print';
 true
 
 # ============================================================================
-# 真调用：内容已经在控制台上了，SQL 这一侧没有值可给
+# 真调用：内容打到控制台上，原文本作为值回来
 # ============================================================================
 
 query T
 SELECT op_print('hello');
 ----
-NULL
+hello
 
-# 空串也是「有内容」：打出去的是那个 tail
+# 空串也是「有内容」：打出去的是那个 tail，回来的还是那个空串
 query T
 SELECT op_print('');
 ----
-NULL
+(empty)
 
-# tail 照给的来，`''` 就是「接着同一行打」
+# tail 只决定追加什么，不进返回值：`''` 是「接着同一行打」
 query T
 SELECT op_print('no newline', '');
 ----
-NULL
+no newline
 
 query T
 SELECT op_print('a line', chr(10) || chr(10));
 ----
-NULL
+a line
 
-# 逐行求值，所以三行打三次，每次都返回 NULL。参数里带上列引用（`'row ' || x`）而不是常量 ——
-# 常量表达式会被折叠，那种写法只打一次，看不出「每行一次」。
+# 回来的就是递进去的那段文本，长度与内容都对得上
 query I
-SELECT count(*) FROM (VALUES (1), (2), (3)) t(x) WHERE op_print('row ' || x) IS NULL;
+SELECT length(op_print('abc', chr(10) || chr(10)));
 ----
 3
+
+# 逐行求值，所以三行打三次、三次都回原文本。参数里带上列引用（`'row ' || x`）而不是常量 ——
+# 常量表达式会被折叠，那种写法只打一次，看不出「每行一次」。
+query I
+SELECT count(*) FROM (VALUES (1), (2), (3)) t(x) WHERE op_print('row ' || x) IS NOT NULL;
+----
+3
+
+# 值回来了，所以它照样能参与别的东西：拼、比较、当投影列都行
+query T
+SELECT op_print('left') || ' + right';
+----
+left + right
 
 # ============================================================================
 # NULL：没有输入就没有可打的东西，函数体一次都不执行

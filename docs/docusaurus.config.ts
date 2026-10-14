@@ -38,7 +38,7 @@ const baseUrl = process.env.DOCS_BASE_URL ?? '/';
 
 const config: Config = {
   title: 'duckfn_open',
-  tagline: 'Extra SQL functions for DuckDB',
+  tagline: 'Open files, reports and web pages from SQL',
   favicon: 'img/logo.svg',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future

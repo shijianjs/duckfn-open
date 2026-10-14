@@ -325,7 +325,7 @@ crate behind one shape instead of spreading its types through the SQL files, and
 The design notes live in this guide: the module layout above, [writing
 functions](./writing-functions.md), [testing](./testing.md) and [build and
 release](./build-and-release.md). The SQL side of the same API — what each name answers, with examples to
-run — is in the user guide's [Functions](../user-guide/functions.md). `AGENTS.md` holds the repository's
+run — is in the user guide's [Functions](../user-guide/functions/index.md). `AGENTS.md` holds the repository's
 conventions, the release flow and a topic-by-topic map of duckfn's own documentation — everything the
 attribute macros can do lives there, not in this repository.
 

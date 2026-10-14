@@ -43,7 +43,7 @@ docs:
     | `op_write_file(content, ext[, opts])` | `VARCHAR` or `BLOB` -> `VARCHAR` | writes content to a file, returns its path, starts nothing |
     | `op_open_content(content, ext[, opts])` | `VARCHAR` or `BLOB` -> `VARCHAR` | writes it and opens it in one call |
     | `op_open_html(content)` | `VARCHAR` -> `VARCHAR` | the zero-config shortcut: a temporary `.html` in the default browser |
-    | `op_print(text[, tail])` | `VARCHAR` -> `NULL` | writes to stdout, past the result set's column formatting |
+    | `op_print(text[, tail])` | `VARCHAR` -> `VARCHAR` | writes to stdout, past the result set's column formatting, and returns the text |
     | `op_sanitize_filename(value[, replacement[, truncate, windows]])` | `VARCHAR` -> `VARCHAR` | rewrites a string into a usable file name, touching neither file nor process |
     | `op_sanitize_filename_check(value[, truncate, windows])` | `VARCHAR` -> `BOOLEAN` | rewrites nothing: is this string already a usable name |
 
@@ -66,7 +66,8 @@ docs:
 
     `op_print` is for the output the CLI's result formatting destroys: character art read line by line,
     such as the ASCII or braille charts a plotting extension produces, which would otherwise arrive
-    wrapped into a single VARCHAR cell. It writes to stdout as it is and returns NULL.
+    wrapped into a single VARCHAR cell. It writes to stdout as it is and hands the same text back, so the
+    call can stay in a projection — where the laid-out copy then appears too.
 
     `op_open_commands` is the read-only entry point: it lists, in the order the crate would try them, the
     launchers this machine would use, so "nothing opened" can be diagnosed without a desktop. Its result

@@ -85,7 +85,7 @@ The second group starts from content, which is the shape of most of what a query
 | `op_write_file` | `(content, ext)`, `(content, ext, opts)` and the same two for `BLOB` | `VARCHAR` — the path it wrote; starts nothing |
 | `op_open_content` | the same four | `VARCHAR` — the path, and the default program already showing it |
 | `op_open_html` | `(content)` | `VARCHAR` — the zero-configuration case: a temporary `.html` in the default browser |
-| `op_print` | `(text)`, `(text, tail)` | `VARCHAR` — always NULL; the text went to stdout |
+| `op_print` | `(text)`, `(text, tail)` | `VARCHAR` — the text it was given; it went to stdout on the way |
 
 `op_open_content` is `op_write_file` composed with `op_open_path` under one name because it is the most common
 thing to do while exploring, and `op_open_html` is `op_open_content(content, 'html')` with all three options
@@ -129,7 +129,7 @@ These groups do not answer alike, and each one is its own contract.
   that path** — the file is on disk, this machine just has nothing to show it with. They take the
   non-blocking route (`open::that_detached`): writing a chart and opening it should not hang until the
   viewer is closed;
-- `op_print` returns NULL always: the text is on the console and SQL has nothing left to say.
+- `op_print` returns the text it was handed: it goes to the console as it is, and stays a value SQL can use.
 
 **The filename pair** answers with a string or a BOOLEAN and nothing else: NULL as soon as any argument is
 NULL — this family has no default to guess at — and no error for a bad value, because no value is bad
@@ -173,7 +173,9 @@ column widths, borders, wrapping — and character art (the ASCII or braille cha
 extension returns as a VARCHAR) is read line by line, so putting it in one cell destroys it. The text goes
 to stdout exactly as it is, flushed on every call because Rust buffers stdout by line; `tail` replaces
 the newline that is appended by default — `''` means "keep going on this line",
-`chr(10) || chr(10)` means "leave a blank line".
+`chr(10) || chr(10)` means "leave a blank line". What it returns is that same text, so the call can stay in
+a projection; because it does, the laid-out copy lands in the result set as well, and a call that should
+reach only the console belongs in a `WHERE` clause instead.
 
 ### The rules the filename pair follows
 
@@ -298,7 +300,8 @@ need one: the signature shapes as registered in `duckdb_functions()`, the NULL s
 argument validation (including the checks that fail before a file is written), `op_open_commands` — the
 launch action that starts no process — and the persistence layer for real: `op_write_file`'s files are
 written and read back with `read_text` / `read_blob` (naming, directory creation, byte-exact BLOB
-round-trips, sanitizing, overwriting), and `op_print` is actually called and asserted to answer NULL.
+round-trips, sanitizing, overwriting), and `op_print` is actually called and asserted to answer with the
+text it printed.
 `op_open_content` and `op_open_html` run through the same `writer::write`, so their tests stay on the catalog
 side and on the calls that error before the launch step. The `op_sanitize_filename` pair needs neither a desktop
 nor a disk, so its file asserts every rewrite verbatim: each of the crate's rules, the arity this API
@@ -356,5 +359,5 @@ makes it `INSTALL duckfn_open FROM community` instead; the two files that requir
 | [AGENTS.md](AGENTS.md) | conventions, the duckfn knowledge map, the release flow |
 | [docs/docs/development/](docs/docs/development/quick-start.md) | the development guide: directory layout, writing and testing functions, build & release (English and Simplified Chinese) |
 | [docs/README.md](docs/README.md) | the documentation site: layout, commands, translations, deployment |
-| [docs/docs/user-guide/functions.md](docs/docs/user-guide/functions.md) | every function with its signatures and examples, per name |
+| [docs/docs/user-guide/functions/](docs/docs/user-guide/functions/index.md) | the function reference: every signature and example, one page per group |
 | [README.zh.md](README.zh.md) | this file, in Chinese |

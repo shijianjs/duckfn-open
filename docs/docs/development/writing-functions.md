@@ -31,7 +31,7 @@ and `scalar_op_sanitize_filename.rs` calls neither layer at all — it wires the
 surface straight to SQL, with the crate's defaults instead of the write family's policy (the write path still
 goes through `writer.rs`, which uses the same crate under a different one). The
 SQL-side semantics of every row below — what each value means to a caller — is the
-[user guide's Functions page](../user-guide/functions.md).
+[user guide's function reference](../user-guide/functions/index.md).
 
 | SQL name | Signature | Rust function | File | Behaviour |
 | --- | --- | --- | --- | --- |
@@ -49,8 +49,8 @@ SQL-side semantics of every row below — what each value means to a caller — 
 | `op_open_content` | `BLOB, VARCHAR -> VARCHAR` | `op_open_content_blob` | `scalar_op_open_content.rs` | Binary content. |
 | `op_open_content` | `BLOB, VARCHAR, op_write_file_options -> VARCHAR` | `op_open_content_blob_with` | `scalar_op_open_content.rs` | Binary content, with the options. |
 | `op_open_html` | `VARCHAR -> VARCHAR` | `op_open_html` | `scalar_op_open_html.rs` | `op_open_content` with everything default and `html` pinned. |
-| `op_print` | `VARCHAR -> VARCHAR` | `op_print` | `scalar_op_print.rs` | Writes to stdout, then a newline. Always returns NULL. |
-| `op_print` | `VARCHAR, VARCHAR -> VARCHAR` | `op_print_with_tail` | `scalar_op_print.rs` | Same, with what to append instead of the newline. |
+| `op_print` | `VARCHAR -> VARCHAR` | `op_print` | `scalar_op_print.rs` | Writes to stdout, then a newline, and hands the text back. |
+| `op_print` | `VARCHAR, VARCHAR -> VARCHAR` | `op_print_with_tail` | `scalar_op_print.rs` | Same, with what to append instead of the newline (the tail is not returned). |
 | `op_sanitize_filename` | `VARCHAR -> VARCHAR` | `op_sanitize_filename` | `scalar_op_sanitize_filename.rs` | Rewrites a string into a usable file name; the crate's defaults (illegal characters deleted, 255-byte cut on, Windows rules on). |
 | `op_sanitize_filename` | `VARCHAR, VARCHAR -> VARCHAR` | `op_sanitize_filename_with_replacement` | `scalar_op_sanitize_filename.rs` | Same, with what to substitute instead of deleting. |
 | `op_sanitize_filename` | `VARCHAR, VARCHAR, BOOLEAN, BOOLEAN -> VARCHAR` | `op_sanitize_filename_with_options` | `scalar_op_sanitize_filename.rs` | The substitution plus both switches in one call: the 255-byte cut and the Windows rules. |
@@ -98,8 +98,8 @@ That is the shape every function here uses, with the value type doing the rest o
 - `DuckOptionResult<bool>` for the launch family and for `op_sanitize_filename_check` — the verdict is the return
   value;
 - `DuckOptionResult<String>` for the write family and for `op_open_html` (a path), for `op_sanitize_filename` (the
-  rewritten name), and for `op_print` (always `Ok(None)`, since the text already went to stdout and SQL has
-  nothing left to say);
+  rewritten name), and for `op_print` (the text it was given, printed on the way through; only a `NULL`
+  argument turns it into `Ok(None)`);
 - `DuckOptionResult<Vec<String>>` for `op_open_commands`: a `Vec<T>` *is* a SQL list, so the return type is
   read off the Rust type and nothing has to be declared anywhere.
 

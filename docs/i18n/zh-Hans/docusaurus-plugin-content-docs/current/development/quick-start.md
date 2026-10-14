@@ -130,13 +130,13 @@ SELECT op_open_path('');    -- 报错：路径或 URL 不能为空
 ```
 
 落盘那一族在任何机器上的答案都相同，因为它根本不需要桌面：`op_write_file` 返回它写出的路径、不起任何进程，
-`op_print` 把文字打到控制台、返回 `NULL`。
+`op_print` 把文字打到控制台、再把同一段文字还回来。
 
 ```sql
 SELECT op_write_file('report body', 'md', {'dir':'./out', 'name':'report', 'part':NULL});
 -- ./out/report.md —— 目录不存在就建出来，什么都不起
 
-SELECT op_print('row ' || x) FROM range(3) t(x);  -- 控制台三行，SQL 里三个 NULL
+SELECT op_print('row ' || x) FROM range(3) t(x);  -- 控制台三行，结果集里也是三行文字
 ```
 
 文件名那一族要得更少 —— 进一个字符串，出一个字符串或一个 `BOOLEAN`，不要桌面、也不碰文件系统 ——

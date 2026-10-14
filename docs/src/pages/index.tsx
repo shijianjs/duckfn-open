@@ -210,7 +210,7 @@ function featuresContent(): FeaturesContent {
     sectionTitle: translate({
       id: 'homepage.features.title',
       description: 'Home page section title above the feature cards',
-      message: 'What duckfn_open gives you',
+      message: 'What it adds to DuckDB',
     }),
     items: [
       {
@@ -218,13 +218,13 @@ function featuresContent(): FeaturesContent {
         title: translate({
           id: 'homepage.features.sql.title',
           description: 'Home page feature card title',
-          message: 'Call it from SQL',
+          message: 'Ordinary SQL functions',
         }),
         details: translate({
           id: 'homepage.features.sql.details',
           description: 'Home page feature card description',
           message:
-            'Nine function names — op_open_path, op_write_file, op_open_content, op_open_html, op_print, op_sanitize_filename and the rest — are ordinary DuckDB functions, and the optional arguments make them twenty-one signatures: use them in any query, alongside the built-in ones, with nothing to import.',
+            'Nine names and twenty-one signatures, every one of them scalar. Call them in a projection or a WHERE clause, next to DuckDB\u2019s own functions.',
         }),
       },
       {
@@ -238,7 +238,7 @@ function featuresContent(): FeaturesContent {
           id: 'homepage.features.content.details',
           description: 'Home page feature card description',
           message:
-            'A report, a chart or a page that has no file yet can be handed over directly: op_write_file writes it out and returns the path, op_open_content opens it in the same call, op_open_html needs no configuration at all, and op_print bypasses the result set for output that is read line by line.',
+            'Most of what a query produces has no file yet. op_write_file writes it out and returns the path, op_open_content opens it in the same call, op_open_html needs no options at all.',
         }),
       },
       {
@@ -246,13 +246,13 @@ function featuresContent(): FeaturesContent {
         title: translate({
           id: 'homepage.features.filename.title',
           description: 'Home page feature card title',
-          message: 'File names made from the data',
+          message: 'File names from your data',
         }),
         details: translate({
           id: 'homepage.features.filename.details',
           description: 'Home page feature card description',
           message:
-            'A name in a query usually comes from the rows — a customer name, a report title, a crawled path column. op_sanitize_filename rewrites one into a name every platform accepts, op_sanitize_filename_check answers whether it already is one, so a query can count and filter what would need changing without changing it. Strings both ways: no file written, no program started.',
+            'A report title or a customer name is not a file name. op_sanitize_filename rewrites one into a name every platform accepts, and op_sanitize_filename_check answers whether it already is one \u2014 a query can count what would change without changing it.',
         }),
       },
       {
@@ -280,7 +280,7 @@ function featuresContent(): FeaturesContent {
           id: 'homepage.features.platforms.details',
           description: 'Home page feature card description',
           message:
-            'Each version attaches one .duckdb_extension per desktop platform to a GitHub Release, and LOAD takes a file straight from its URL \u2014 no download step in between. There is no WebAssembly asset: a launcher is desktop software.',
+            'Each release carries one .duckdb_extension per desktop platform, and LOAD takes the file straight from its URL. There is no WebAssembly build: a launcher is desktop software.',
         }),
       },
       {
@@ -295,34 +295,6 @@ function featuresContent(): FeaturesContent {
           description: 'Home page feature card description',
           message:
             "Built against DuckDB's C extension API, so one binary loads into DuckDB 1.3 and later without a recompile.",
-        }),
-      },
-      {
-        icon: 'lucide:code',
-        title: translate({
-          id: 'homepage.features.examples.title',
-          description: 'Home page feature card title',
-          message: 'Examples to run in your own DuckDB',
-        }),
-        details: translate({
-          id: 'homepage.features.examples.details',
-          description: 'Home page feature card description',
-          message:
-            'The function reference is plain SQL: load the extension into a local DuckDB and paste it in. These pages run nothing for you \u2014 the launcher they talk to lives on the machine the query runs on.',
-        }),
-      },
-      {
-        icon: 'lucide:scale',
-        title: translate({
-          id: 'homepage.features.license.title',
-          description: 'Home page feature card title',
-          message: 'MIT licensed',
-        }),
-        details: translate({
-          id: 'homepage.features.license.details',
-          description: 'Home page feature card description',
-          message:
-            'Open source under the MIT license: the source, the tests and these pages all live in the repository.',
         }),
       },
     ],
@@ -376,7 +348,7 @@ function nextStepsContent(
         details: translate({
           id: 'homepage.next.functions.details',
           description: 'Home page link card description',
-          message: 'Every function, with an example to run in your own DuckDB.',
+          message: 'Every function, grouped by what it takes: a path, some content, or a file name.',
         }),
       },
       {
@@ -411,9 +383,9 @@ function CodeShowcase(): ReactNode {
           <Translate
             id="homepage.showcase.lead"
             description="Home page paragraph introducing the SQL code blocks">
-            The extension adds ordinary SQL functions, with nothing to import at
-            the call site. Install it once (left), then use the functions
-            anywhere a DuckDB function is allowed (right).
+            There is nothing to import at the call site. Install the extension
+            once (left), then call the functions anywhere DuckDB takes a
+            function (right).
           </Translate>
         </p>
         <div className={styles.codeGrid}>
@@ -429,12 +401,12 @@ function CodeShowcase(): ReactNode {
               <Translate
                 id="homepage.showcase.caption"
                 description="Home page note under the SQL code block explaining the trailing comments">
-                The comments are what each call answers: the first three are a
-                value you hand in that has no file yet, the last two are a path
-                that already exists — and the final line only lists the commands
-                a launch would try, without trying any of them. The third call
-                is the one that stays a string: op_sanitize_filename rewrites a file
-                name, touching neither the disk nor the desktop.
+                Those trailing comments are the answers. The first two calls take
+                a value that has no file yet, the last two a path that already
+                exists — and the final one only lists the commands a launch
+                would try, without trying any of them. In between,
+                op_sanitize_filename is the one that stays a string: it rewrites
+                a file name, touching neither the disk nor the desktop.
               </Translate>
             </p>
           </div>

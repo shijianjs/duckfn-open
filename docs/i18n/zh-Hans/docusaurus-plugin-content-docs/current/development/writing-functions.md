@@ -27,7 +27,7 @@ flowchart LR
 两个文件是例外：`op_print` 要做的整件事就是往 stdout 写，所以那段写就在它自己的文件里；
 `scalar_op_sanitize_filename.rs` 则两层都不调 —— 它把 `sanitize-filename` 这个库自己的对外面原样接到 SQL 上，
 用的是库自己的缺省，而不是落盘那一族的策略（写盘那条路径仍然走 `writer.rs`，它内部用的是同一个库、另一套
-策略）。下面每一行对调用方意味着什么（SQL 侧的语义），在用户指南的[函数](../user-guide/functions.md)那一页。
+策略）。下面每一行对调用方意味着什么（SQL 侧的语义），在用户指南的[函数](../user-guide/functions/index.md)那一节。
 
 | SQL 名字 | 签名 | Rust 函数 | 文件 | 行为 |
 | --- | --- | --- | --- | --- |
@@ -45,8 +45,8 @@ flowchart LR
 | `op_open_content` | `BLOB, VARCHAR -> VARCHAR` | `op_open_content_blob` | `scalar_op_open_content.rs` | 二进制内容。 |
 | `op_open_content` | `BLOB, VARCHAR, op_write_file_options -> VARCHAR` | `op_open_content_blob_with` | `scalar_op_open_content.rs` | 二进制内容，带选项。 |
 | `op_open_html` | `VARCHAR -> VARCHAR` | `op_open_html` | `scalar_op_open_html.rs` | 全走缺省、后缀写死成 `html` 的 `op_open_content`。 |
-| `op_print` | `VARCHAR -> VARCHAR` | `op_print` | `scalar_op_print.rs` | 打到 stdout，再补一个换行。返回值恒为 NULL。 |
-| `op_print` | `VARCHAR, VARCHAR -> VARCHAR` | `op_print_with_tail` | `scalar_op_print.rs` | 同上，换行换成第二个参数给的东西。 |
+| `op_print` | `VARCHAR -> VARCHAR` | `op_print` | `scalar_op_print.rs` | 打到 stdout，再补一个换行，然后把那段文本还回去。 |
+| `op_print` | `VARCHAR, VARCHAR -> VARCHAR` | `op_print_with_tail` | `scalar_op_print.rs` | 同上，换行换成第二个参数给的东西（tail 不进返回值）。 |
 | `op_sanitize_filename` | `VARCHAR -> VARCHAR` | `op_sanitize_filename` | `scalar_op_sanitize_filename.rs` | 把字符串改写成一个可用的文件名；库自己的缺省（非法字符删掉、255 字节这一刀开着、Windows 规则开着）。 |
 | `op_sanitize_filename` | `VARCHAR, VARCHAR -> VARCHAR` | `op_sanitize_filename_with_replacement` | `scalar_op_sanitize_filename.rs` | 同上，第二个参数指定非法字符换成什么，而不是删掉。 |
 | `op_sanitize_filename` | `VARCHAR, VARCHAR, BOOLEAN, BOOLEAN -> VARCHAR` | `op_sanitize_filename_with_options` | `scalar_op_sanitize_filename.rs` | 一次给全：替换符，外加那两个开关 —— 255 字节这一刀与 Windows 规则。 |
@@ -92,7 +92,7 @@ pub(super) fn op_open_path(path: String) -> DuckOptionResult<bool> {
 
 - 启动那一族与 `op_sanitize_filename_check` 是 `DuckOptionResult<bool>` —— 结论就是返回值；
 - 落盘那一族与 `op_open_html` 是 `DuckOptionResult<String>`（一个路径），`op_sanitize_filename` 也是它（改写出来的
-  那个名字），`op_print` 同样是它，只不过永远回 `Ok(None)`：文本已经上控制台了，SQL 这边没有值可给；
+  那个名字），`op_print` 同样是它（递进去的那段文本，顺手打一遍；只有参数是 `NULL` 时才回 `Ok(None)`）；
 - `op_open_commands` 是 `DuckOptionResult<Vec<String>>`：`Vec<T>` 本身就是 SQL 的 list，所以返回类型是从
   Rust 类型读出来的，两边都不需要额外声明。
 

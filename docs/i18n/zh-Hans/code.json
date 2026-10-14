@@ -330,7 +330,7 @@
     "message": "开始使用"
   },
   "homepage.tagline": {
-    "message": "给 DuckDB 补充 SQL 函数",
+    "message": "在 SQL 里打开文件、报表与网页",
     "description": "The tagline shown on the homepage hero"
   },
   "homepage.github": {
@@ -338,15 +338,15 @@
     "description": "Home page button linking to the repository"
   },
   "homepage.features.title": {
-    "message": "duckfn_open 能给你什么",
+    "message": "它给 DuckDB 加了什么",
     "description": "Home page section title above the feature cards"
   },
   "homepage.features.sql.title": {
-    "message": "直接用 SQL 调用",
+    "message": "就是普通的 SQL 函数",
     "description": "Home page feature card title"
   },
   "homepage.features.sql.details": {
-    "message": "九个函数名 —— op_open_path、op_write_file、op_open_content、op_open_html、op_print、op_sanitize_filename 以及其余 —— 就是普通的 DuckDB 函数，可选参数把它们摊开来是二十一个签名：放进任意查询，和内置函数一起用，调用处不需要 import 任何东西。",
+    "message": "九个名字、二十一个签名，全是标量函数。放进投影里、放进 WHERE 里，和 DuckDB 自带的函数一起用。",
     "description": "Home page feature card description"
   },
   "homepage.features.content.title": {
@@ -354,7 +354,7 @@
     "description": "Home page feature card title"
   },
   "homepage.features.content.details": {
-    "message": "还没有落在磁盘上的报告、图表或页面可以直接交出去：op_write_file 把它写成文件并返回路径，op_open_content 在同一次调用里顺手打开，op_open_html 什么都不用配，op_print 则绕过结果集，给那些要一行行读的输出。",
+    "message": "查询产出的东西大多还没有文件。op_write_file 把它写出去、返回路径，op_open_content 在同一次调用里顺手打开，op_open_html 连选项都不用写。",
     "description": "Home page feature card description"
   },
   "homepage.features.filename.title": {
@@ -362,7 +362,7 @@
     "description": "Home page feature card title"
   },
   "homepage.features.filename.details": {
-    "message": "查询里的文件名常常出自数据本身 —— 客户名、报表标题、抓回来的那一列 path。op_sanitize_filename 把它改写成各平台都认的名字，op_sanitize_filename_check 只回答它本来是不是这样一个名字，于是查询能数出、筛出哪些非改不可，却在这一层先不动它。两头都是字符串：不写文件，不起进程。",
+    "message": "报表标题、客户名当不了文件名。op_sanitize_filename 把它改写成各平台都认的名字，op_sanitize_filename_check 只回答它本来是不是这样一个名字 —— 于是查询能数出哪些会被改动，而在这层一条都不动。",
     "description": "Home page feature card description"
   },
   "homepage.features.install.title": {
@@ -378,7 +378,7 @@
     "description": "Home page feature card title"
   },
   "homepage.features.platforms.details": {
-    "message": "每个版本都会把各桌面平台各一份 .duckdb_extension 挂到 GitHub Release 上，LOAD 可以直接按 URL 取，中间不用先下载。没有 WebAssembly 资产 —— 启动器是桌面软件。",
+    "message": "每个版本按桌面平台各挂一份 .duckdb_extension，LOAD 可以直接按 URL 取这个文件。没有 WebAssembly 构建 —— 启动器是桌面软件。",
     "description": "Home page feature card description"
   },
   "homepage.features.versions.title": {
@@ -389,32 +389,16 @@
     "message": "基于 DuckDB 的 C 扩展 API 构建，一个二进制就能加载进 DuckDB 1.3 及之后的版本，不需要重新编译。",
     "description": "Home page feature card description"
   },
-  "homepage.features.examples.title": {
-    "message": "在你自己的 DuckDB 里跑的例子",
-    "description": "Home page feature card title"
-  },
-  "homepage.features.examples.details": {
-    "message": "函数参考页里就是普通 SQL：在本地的 DuckDB 里加载扩展，把语句粘进去即可。这些页面不会替你跑任何东西 —— 它们讲的那个启动器住在查询运行的那台机器上。",
-    "description": "Home page feature card description"
-  },
-  "homepage.features.license.title": {
-    "message": "MIT 许可",
-    "description": "Home page feature card title"
-  },
-  "homepage.features.license.details": {
-    "message": "以 MIT 许可开源：源码、测试与这些页面都在仓库里。",
-    "description": "Home page feature card description"
-  },
   "homepage.showcase.title": {
     "message": "装一次，之后就在 SQL 里调用",
     "description": "Home page section title above the SQL code blocks"
   },
   "homepage.showcase.lead": {
-    "message": "扩展加的就是一批普通的 SQL 函数，调用处不用 import 任何东西。左边装一次，右边就能在任何能写 DuckDB 函数的地方用它。",
+    "message": "调用处不用 import 任何东西。左边装一次，右边就能在任何能写 DuckDB 函数的地方用它。",
     "description": "Home page paragraph introducing the SQL code blocks"
   },
   "homepage.showcase.caption": {
-    "message": "注释写的是每次调用的答复：前三个递进去的是一个还没有落在磁盘上的值，后两个是已经存在的路径 —— 最后一行只列出真去启动时会依次尝试的命令，而它一条都不会尝试。第三个调用是只停在字符串里的那一个：op_sanitize_filename 改写的只是一个文件名，既不碰磁盘，也不碰桌面。",
+    "message": "后面那些注释就是每次调用的答复：前两个递进去的是一个还没有文件的值，后两个是已经存在的路径 —— 最后一行只列出真去启动时会依次尝试的命令，一条都不尝试。中间那个停在字符串里：op_sanitize_filename 改写的只是文件名，既不碰磁盘，也不碰桌面。",
     "description": "Home page note under the SQL code block explaining the trailing comments"
   },
   "homepage.showcase.link": {
@@ -446,7 +430,7 @@
     "description": "Home page link card title"
   },
   "homepage.next.functions.details": {
-    "message": "每个函数，配一个在你自己的 DuckDB 里跑的例子。",
+    "message": "每个函数，按它接手的东西分组：一个路径、一段内容，或者一个文件名。",
     "description": "Home page link card description"
   },
   "homepage.next.development.title": {

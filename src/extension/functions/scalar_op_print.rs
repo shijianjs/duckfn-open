@@ -16,8 +16,10 @@
 // SELECT op_print('rows: ' || count(*)) FROM t;          -- 顺手一行，不占结果集
 // ```
 //
-// 返回值是 NULL：已经打出去了，SQL 这一侧没有值可给。`op_print(x) IS NULL` 恒真，所以别拿它当过滤条件
-// —— 那是 `op_open_path` 那一族的事。
+// 返回值就是递进来的那段文本：`text` 进、`text` 出。打印是这次调用的副作用，值本身不因此丢掉 —— 于是它
+// 可以留在投影里，或者被下游的查询接着拼下去。第二个签名里的 tail 只决定「打完追加什么」，不进返回值。
+//
+// NULL 进、NULL 出：没有输入就没有可打的东西，函数体一次都不执行，答复也还是 NULL。
 //
 // 两个签名的分工是「打完追加什么」：不写 tail 时补一个换行，免得下一行的输出接在同一行上；写了 tail 就照
 // 它给的来（`''` 是「接着打，不要换行」，`chr(10) || chr(10)` 是「空一行再打」）。
@@ -40,9 +42,12 @@
 // about handing a thing to somewhere that can show it, and a console is such a place — hence `open` in
 // the name.
 //
-// The return value is NULL: the text is already on the console and SQL has nothing else to say.
-// `op_print(x) IS NULL` is always true, so it is not a filter predicate — that job stays with the
-// `op_open_path` family.
+// The return value is the text it was given: text in, text out. Printing is one side effect, and the
+// value is not spent by it — so the call can stay in a projection, or be concatenated further
+// downstream. The `tail` of the second signature says what is appended, and is not part of the answer.
+//
+// NULL in, NULL out: a row with no input has nothing to print, the body never runs, and the answer
+// stays NULL.
 //
 // The two signatures split on "what follows the text": with no tail a newline is added so the next line
 // of output does not run into this one; with a tail exactly that is written (`''` means "keep going on
@@ -61,7 +66,7 @@ use duckfn::{DuckOptionResult, duck_error, duck_scalar_function};
 /// The newline appended when no tail is given.
 const DEFAULT_TAIL: &str = "\n";
 
-/// `op_print(text)`：把文本原样打到 stdout，后面补一个换行，返回 NULL。
+/// `op_print(text)`：把文本原样打到 stdout，后面补一个换行，然后把这段文本还回去。
 ///
 /// ```sql
 /// SELECT op_print(textplot(y)) FROM series;
@@ -69,24 +74,27 @@ const DEFAULT_TAIL: &str = "\n";
 /// ```
 ///
 /// 标量函数逐行求值，所以一段查询里每行都会打一次，顺序就是这个执行序（多行时它是一份流水账，不是一份
-/// 排好版的报告 —— 那本来就该留在结果集里）。NULL 行什么都不打：没有输入，也就没有可打的东西。
+/// 排好版的报告 —— 那本来就该留在结果集里）。回来的值和打出去的是同一段文本，所以调用留在投影里，控制台
+/// 那份与结果集那份都看得见。NULL 行什么都不打、也回 NULL：没有输入，也就没有可打的东西。
 ///
 /// 一个例外要留意：参数是**常量**时 DuckDB 会把它折成一次求值，于是 `SELECT op_print('x') FROM t`
 /// 只打一行，不管 `t` 有多少行。要每行都打，参数里就得带上列引用（`op_print('x: ' || a)`）。
 ///
-/// Writes the text to stdout as it is, then a newline, and returns NULL. A scalar function is evaluated
-/// per row, so a query with several rows prints several times in that execution order (a running log, not
-/// a laid-out report — which is what the result set is for). A NULL row prints nothing: no input, nothing
-/// to show.
+/// Writes the text to stdout as it is, then a newline, and hands the text back. A scalar function is
+/// evaluated per row, so a query with several rows prints several times in that execution order (a
+/// running log, not a laid-out report — which is what the result set is for), and the value that comes
+/// back is that same text, so keeping the call in a projection shows it in both places. A NULL row
+/// prints nothing and answers NULL: no input, nothing to show.
 ///
 /// One exception to know about: a *constant* argument is folded into a single evaluation, so
 /// `SELECT op_print('x') FROM t` prints one line however many rows `t` has. Reference a column to get
 /// one line per row (`op_print('x: ' || a)`).
 #[duck_scalar_function(
     description = "Prints a piece of text straight to stdout, bypassing the result set's column formatting",
-    comment = "For character art and other line-aligned output the CLI would otherwise wrap: it is \
-               written to stdout as it is and the SQL value is NULL; the optional second argument is \
-               what follows the text instead of the default newline",
+    comment = "For character art and other line-aligned output the CLI would otherwise wrap: the text \
+               is written to stdout as it is and handed back unchanged, so the call can stay in a \
+               projection; the optional second argument is what follows the text instead of the \
+               default newline",
     examples = [
         "SELECT op_print(textplot(y)) FROM series",
         "SELECT op_print('rows: ' || count(*)) FROM t"
@@ -131,6 +139,6 @@ fn print(sql_name: &str, text: &str, tail: &str) -> DuckOptionResult<String> {
         .and_then(|_| out.flush())
         .map_err(|err| duck_error(format!("{sql_name}: cannot write to stdout: {err}")))?;
 
-    // 内容已经在控制台上了，SQL 这一侧没有值可给。
-    Ok(None)
+    // 打完了，把原样递进来的那段文本还回去：打印是这次调用的副作用，不是这个值的去处。
+    Ok(Some(text.to_string()))
 }

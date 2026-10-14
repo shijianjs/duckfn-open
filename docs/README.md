@@ -149,7 +149,7 @@ A translated page is a full copy of its English source, placed under
 
 - Translate the body and the reader-facing front matter (`title`, `description`).
 - Keep `id`, `slug` and `sidebar_position` identical so both languages share routes and order.
-- Link to other pages with **relative file paths** (`./testing.md`, `../user-guide/functions.md`).
+- Link to other pages with **relative file paths** (`./testing.md`, `../user-guide/functions/index.md`).
   A hard-coded `/docs/...` link would send a Chinese page to the English one.
 - Code blocks are code: copy the SQL verbatim and translate only its comments.
 

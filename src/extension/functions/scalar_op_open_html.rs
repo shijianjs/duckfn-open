@@ -13,7 +13,7 @@
 //
 // 什么时候不用它：要挑目录、要给文件名、要在名字里留一段认得出「这是哪一份」的记号（`part`），或者要换
 // 一个非默认的浏览器 —— 那些都是 `op_open_content(content, 'html', opts)` 与
-// `op_open_path(op_write(html, 'html'), 'firefox')` 的事。
+// `op_open_path(op_write_file(html, 'html'), 'firefox')` 的事。
 //
 // BLOB 没有对应的签名：这里的输入是 HTML **文本**，二进制那一路请先
 // `CAST(blob AS VARCHAR)`（或者干脆走 `op_open_content(blob, 'html')`）。
@@ -29,7 +29,7 @@
 //
 // When not to use it: to pick a directory, name the file, leave a recognisable `part` in the name, or use
 // a non-default browser — those are `op_open_content(content, 'html', opts)` and
-// `op_open_path(op_write(html, 'html'), 'firefox')`.
+// `op_open_path(op_write_file(html, 'html'), 'firefox')`.
 //
 // There is no BLOB signature: the input here is HTML *text*. For the binary case, cast first
 // (`CAST(blob AS VARCHAR)`) or go through `op_open_content(blob, 'html')`.

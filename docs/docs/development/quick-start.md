@@ -52,7 +52,7 @@ What is left once the name is consistent everywhere:
    functions](./writing-functions.md) and [testing](./testing.md). This repository has already done that: seven
    function files under `src/extension/functions/` covering nine SQL names, the platform layer in
    `src/extension/launcher.rs`, the persistence layer in `src/extension/writer.rs`, the options STRUCT in
-   `src/extension/types/op_write_options.rs`, and one `.test` per function file under `test/sql/` plus a
+   `src/extension/types/op_write_file_options.rs`, and one `.test` per function file under `test/sql/` plus a
    smoke test.
 3. **`community-extension/description.yml`** — `extension.name` / `description` / `maintainers` / `repo`
    are yours to fill in; the field-by-field reasoning is in
@@ -102,14 +102,14 @@ op_open_path(path)                     op_open_path(path, app)
 op_open_path_detached(path)            op_open_path_detached(path, app)
 op_open_commands(path)
 
-op_write(content|blob, ext)            op_write(content|blob, ext, opts)
+op_write_file(content|blob, ext)       op_write_file(content|blob, ext, opts)
 op_open_content(content|blob, ext)     op_open_content(content|blob, ext, opts)
 op_open_html(content)
 op_print(text)                         op_print(text, tail)
 
-op_filename(value)                     op_filename(value, replacement)
-op_filename(value, replacement, truncate, windows)
-op_filename_check(value)               op_filename_check(value, truncate, windows)
+op_sanitize_filename(value)            op_sanitize_filename(value, replacement)
+op_sanitize_filename(value, replacement, truncate, windows)
+op_sanitize_filename_check(value)      op_sanitize_filename_check(value, truncate, windows)
 ```
 
 The one type it registers is the options argument of the write family:
@@ -120,7 +120,7 @@ FROM duckdb_types()
 WHERE starts_with(type_name, 'op_');
 ```
 
-That is `op_write_options(dir VARCHAR, "name" VARCHAR, part VARCHAR)` — `name` carries quotes because NAME
+That is `op_write_file_options(dir VARCHAR, "name" VARCHAR, part VARCHAR)` — `name` carries quotes because NAME
 is a keyword in DuckDB's grammar. Both the signatures and the type are declared in Rust; see [writing
 functions](./writing-functions.md). The filename pair registers no type alongside them: its arguments are
 plain `VARCHAR` and `BOOLEAN`, which is worth asserting once in a test, because a Rust argument name is not a
@@ -138,11 +138,11 @@ The failure path is worth running too — an empty argument is an error, not a `
 SELECT op_open_path('');    -- error: the path or URL must not be empty
 ```
 
-The write family answers the same way on every machine, because it needs no desktop at all: `op_write`
+The write family answers the same way on every machine, because it needs no desktop at all: `op_write_file`
 returns the path it wrote and starts nothing, `op_print` puts the text on the console and returns `NULL`.
 
 ```sql
-SELECT op_write('report body', 'md', {'dir':'./out', 'name':'report', 'part':NULL});
+SELECT op_write_file('report body', 'md', {'dir':'./out', 'name':'report', 'part':NULL});
 -- ./out/report.md — a missing directory is created, nothing is started
 
 SELECT op_print('row ' || x) FROM range(3) t(x);  -- three lines on the console, three NULLs in SQL
@@ -157,16 +157,16 @@ platform and one query must answer the same way on every machine. It is *not* a 
 which uses the same crate under a different policy.
 
 ```sql
-SELECT op_filename('quarterly/report:v2.csv');    -- 'quarterlyreportv2.csv': the defaults delete, they do not substitute
-SELECT op_filename('a/b:c?.txt', '_');            -- 'a_b_c_.txt': pass a replacement to see where it edited
-SELECT op_filename_check('CON.txt');              -- false: a Windows reserved device name
+SELECT op_sanitize_filename('quarterly/report:v2.csv');    -- 'quarterlyreportv2.csv': the defaults delete, they do not substitute
+SELECT op_sanitize_filename('a/b:c?.txt', '_');            -- 'a_b_c_.txt': pass a replacement to see where it edited
+SELECT op_sanitize_filename_check('CON.txt');              -- false: a Windows reserved device name
 SELECT count(*) FROM (VALUES ('a.txt'), ('b/c.txt')) t(name)
-WHERE NOT op_filename_check(name);                -- 1: how many names would be touched, changed by nothing
+WHERE NOT op_sanitize_filename_check(name);                -- 1: how many names would be touched, changed by nothing
 ```
 
-`op_filename` has no three-argument form: `truncate` and `windows` only come as a pair, so
-`op_filename(x, '_', true)` is a binder error. That gap is the one compression in this API and it is
-deliberate — the reason is in `src/extension/functions/scalar_op_filename.rs`.
+`op_sanitize_filename` has no three-argument form: `truncate` and `windows` only come as a pair, so
+`op_sanitize_filename(x, '_', true)` is a binder error. That gap is the one compression in this API and it is
+deliberate — the reason is in `src/extension/functions/scalar_op_sanitize_filename.rs`.
 
 What an actual launch answers depends on this machine's desktop: which launchers are installed, and what
 `.html` is associated with. There is no second place to run it — this extension builds for desktop targets
@@ -195,8 +195,8 @@ just sql "SELECT op_open_path(NULL)"
 just test           # make configure + make debug + make test, then a cleanup of what the tests wrote
 ```
 
-Eight files under `test/sql/`, and three of them really execute: `op_write.test` writes files and reads them
-back, `op_print.test` writes to stdout, `op_filename.test` asserts whole rewrites on the strings it gets
+Eight files under `test/sql/`, and three of them really execute: `op_write_file.test` writes files and reads them
+back, `op_print.test` writes to stdout, `op_sanitize_filename.test` asserts whole rewrites on the strings it gets
 back — no process, no file system, so nothing there depends on the machine. The files land under `test/sql/`
 (`named/`, `blob/`, `unique/` …), git-ignored and swept away by that cleanup step.
 [Testing](./testing.md) covers that, the faster loop, and what a new function should cover.

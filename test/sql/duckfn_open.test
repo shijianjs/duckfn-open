@@ -14,9 +14,9 @@ SELECT op_open_commands('report.html');
 Scalar Function with name op_open_commands does not exist
 
 statement error
-SELECT op_write('report', 'html');
+SELECT op_write_file('report', 'html');
 ----
-Scalar Function with name op_write does not exist
+Scalar Function with name op_write_file does not exist
 
 statement error
 SELECT op_print('report');
@@ -24,9 +24,9 @@ SELECT op_print('report');
 Scalar Function with name op_print does not exist
 
 statement error
-SELECT op_filename('report:q3');
+SELECT op_sanitize_filename('report:q3');
 ----
-Scalar Function with name op_filename does not exist
+Scalar Function with name op_sanitize_filename does not exist
 
 # require 之后扩展就位（测试框架按 --external-extension 加载本地产物）
 require duckfn_open
@@ -41,10 +41,10 @@ FROM (
     ORDER BY function_name
 );
 ----
-op_filename,op_filename_check,op_open_commands,op_open_content,op_open_html,op_open_path,op_open_path_detached,op_print,op_write
+op_open_commands,op_open_content,op_open_html,op_open_path,op_open_path_detached,op_print,op_sanitize_filename,op_sanitize_filename_check,op_write_file
 
-# 签名总数：op_open_commands 1 + op_open_path 2 + op_open_path_detached 2 + op_write 4 + op_open_content 4 +
-# op_open_html 1 + op_print 2 + op_filename 3 + op_filename_check 2
+# 签名总数：op_open_commands 1 + op_open_path 2 + op_open_path_detached 2 + op_write_file 4 + op_open_content 4 +
+# op_open_html 1 + op_print 2 + op_sanitize_filename 3 + op_sanitize_filename_check 2
 query I
 SELECT count(*)
 FROM duckdb_functions()

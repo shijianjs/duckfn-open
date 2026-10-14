@@ -1,14 +1,14 @@
 use duckfn::DuckStruct;
 
 // ============================================================================
-// `op_write_options`：把内容落盘时的三个可选项
+// `op_write_file_options`：把内容落盘时的三个可选项
 //
-// `op_write` / `op_open_content` 的第 3 个参数。内容（VARCHAR 或 BLOB）与后缀（必填的第 2 个参数）
+// `op_write_file` / `op_open_content` 的第 3 个参数。内容（VARCHAR 或 BLOB）与后缀（必填的第 2 个参数）
 // 之外，剩下三件事都放这里，于是这个函数永远只有两种 arity：
 //
 // ```sql
-// SELECT op_write(html, 'html');                                    -- 全默认
-// SELECT op_write(html, 'html', {'dir':'./out','part':'sales'});    -- 只挑两个选项
+// SELECT op_write_file(html, 'html');                                    -- 全默认
+// SELECT op_write_file(html, 'html', {'dir':'./out','part':'sales'});    -- 只挑两个选项
 // ```
 //
 // 三个字段**全部**是 `Option<T>`，这是硬要求：DuckDB 的 struct 字面量缺字段时补 NULL，而 duckfn 读到
@@ -19,9 +19,9 @@ use duckfn::DuckStruct;
 // 落盘的形状归 writer.rs，起进程的形状归 launcher.rs。
 //
 // ----------------------------------------------------------------------------
-// `op_write_options`: the three optional settings for writing content out.
+// `op_write_file_options`: the three optional settings for writing content out.
 //
-// The third argument of `op_write` / `op_open_content`. Everything except the content (VARCHAR or BLOB)
+// The third argument of `op_write_file` / `op_open_content`. Everything except the content (VARCHAR or BLOB)
 // and the extension (the required second argument) lives here, so those functions have exactly two
 // arities.
 //
@@ -45,8 +45,8 @@ use duckfn::DuckStruct;
 /// It deliberately holds no "which program opens it": that is `op_open_path(path, app)`'s job, and handing
 /// it the path is the composable way to say so, instead of every writer copying the launcher arguments.
 #[derive(Clone, Debug, Default, DuckStruct)]
-#[duck(sql_name = "op_write_options", create_type = "replace")]
-pub(crate) struct OpWriteOptions {
+#[duck(sql_name = "op_write_file_options", create_type = "replace")]
+pub(crate) struct OpWriteFileOptions {
     /// 输出目录。缺省用系统临时目录；目录不存在时递归创建。
     ///
     /// The output directory. The system temp directory when unset; created (with any missing parents)

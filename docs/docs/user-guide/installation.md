@@ -78,9 +78,9 @@ FROM duckdb_functions()
 WHERE function_name LIKE 'op%';
 ```
 
-Twenty-one rows for the nine names this extension registers (`op_write` and `op_open_content` carry four
+Twenty-one rows for the nine names this extension registers (`op_write_file` and `op_open_content` carry four
 signatures each — text and binary, with and without options; `op_open_path`, `op_open_path_detached`,
-`op_print` and `op_filename_check` carry two each; `op_filename` carries three; `op_open_commands` and
+`op_print` and `op_sanitize_filename_check` carry two each; `op_sanitize_filename` carries three; `op_open_commands` and
 `op_open_html` one). The options STRUCT the write signatures take is a registered type rather than a
 function, so it shows up in `duckdb_types()`, not here. If the list is empty, the extension is not loaded
 in the session you are querying.

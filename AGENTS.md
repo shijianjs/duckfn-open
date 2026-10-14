@@ -13,15 +13,15 @@ AGENTS.md（duckfn-extension-template 自带的那一份）：克隆模板后**�
   并把这条能力从「已经有个路径」推广到「任何一段内容都先有个地方能看」——
   `op_open_path(path[, app])` 与它的非阻塞版 `op_open_path_detached(path[, app])` 起启动器，
   `op_open_commands(path)` 只列出会依次尝试的启动命令、不起任何进程；
-  `op_write(content|blob, ext[, opts])` 把一段内容落盘、只回路径（不起进程，好和其它 path 函数拼），
+  `op_write_file(content|blob, ext[, opts])` 把一段内容落盘、只回路径（不起进程，好和其它 path 函数拼），
   `op_open_content(...)` 落盘后立刻用默认程序打开（就是前两者的合成），`op_open_html(content)` 是它零配置的
   HTML 特例，`op_print(text[, tail])` 绕过结果集直接写到 stdout —— 字符画这类被 CLI 排版一下就散的
-  东西走这条路；另有一族**纯字符串**函数与上面都无关：`op_filename(value[, replacement[, truncate,
-  windows]])` 改写成一个可用的文件名，`op_filename_check(value[, truncate, windows])` 只回答它本来就
+  东西走这条路；另有一族**纯字符串**函数与上面都无关：`op_sanitize_filename(value[, replacement[, truncate,
+  windows]])` 改写成一个可用的文件名，`op_sanitize_filename_check(value[, truncate, windows])` 只回答它本来就
   合不合法，这两个名字是把 [sanitize-filename](https://crates.io/crates/sanitize-filename) 这个库的
-  能力原样接到 SQL 上（不是 `op_write` 的助手，缺省跟着库走，只有 `windows` 钉成 `true`）。
+  能力原样接到 SQL 上（不是 `op_write_file` 的助手，缺省跟着库走，只有 `windows` 钉成 `true`）。
   九个 SQL 名字、二十一个签名，全是标量函数，没有聚合与表函数；此外注册一个 STRUCT 类型
-  `op_write_options(dir, name, part)` 承载落盘的三个可选项。平台差异集中在
+  `op_write_file_options(dir, name, part)` 承载落盘的三个可选项。平台差异集中在
   `src/extension/launcher.rs`，落盘与命名规则集中在 `src/extension/writer.rs`。**只构建桌面平台**：启动器
   是桌面软件，这个扩展没有 wasm 目标（见下面「排除 wasm 构建」）。
 - 本仓库来自 [duckfn-extension-template](https://github.com/shijianjs/duckfn-extension-template)：
@@ -183,30 +183,30 @@ replacement scan。这个扩展的前缀是 `op_`（模板那份是 `my_`）。
 **前缀只是命名空间，不再是扩展名的缩写** —— 不要因为扩展名变了就跟着改。
 
 前缀之下再分一层：真正会起启动器的那几个叫 `op_open_*`（`op_open_commands` 是它们的只读预览，名字必须跟
-被预览的那个对得上），`op_write`、`op_print` 与 `op_filename` 那一对照常说 `op_` 而不说「open」。
+被预览的那个对得上），`op_write_file`、`op_print` 与 `op_sanitize_filename` 那一对照常说 `op_` 而不说「open」。
 **不要为了和扩展名齐就写成 `open_open_path`** —— 那样每个真打开的函数都念两遍同一件事，
 而 `open_filename` 这类名字又会读成「打开一个文件名」。
 
 前缀之后的部分要能读懂，不要拿缩写堆砌。一个名字下的多个签名靠 `overloads_name` 并成一个函数集
 （Rust 函数名与 SQL 名字不同，见下面 `SQL_NAME` 那一段）—— 九个名字里 `op_open_path`、
-`op_open_path_detached`、`op_write`、`op_open_content`、`op_print`、`op_filename`、
-`op_filename_check` 都是这样并出来的：
+`op_open_path_detached`、`op_write_file`、`op_open_content`、`op_print`、`op_sanitize_filename`、
+`op_sanitize_filename_check` 都是这样并出来的：
 
 ```text
-op_open_path(path)                  op_open_path(path, app)
-op_open_path_detached(path)         op_open_path_detached(path, app)
+op_open_path(path)                op_open_path(path, app)
+op_open_path_detached(path)       op_open_path_detached(path, app)
 op_open_commands(path)
 
-op_write(content, ext)              op_write(content, ext, opts)
-op_write(blob, ext)                 op_write(blob, ext, opts)
-op_open_content(content, ext)       op_open_content(content, ext, opts)
-op_open_content(blob, ext)          op_open_content(blob, ext, opts)
+op_write_file(content, ext)       op_write_file(content, ext, opts)
+op_write_file(blob, ext)          op_write_file(blob, ext, opts)
+op_open_content(content, ext)     op_open_content(content, ext, opts)
+op_open_content(blob, ext)        op_open_content(blob, ext, opts)
 op_open_html(content)
-op_print(text)                      op_print(text, tail)
+op_print(text)                    op_print(text, tail)
 
-op_filename(value)                  op_filename(value, replacement)
-op_filename(value, replacement, truncate, windows)
-op_filename_check(value)            op_filename_check(value, truncate, windows)
+op_sanitize_filename(value)       op_sanitize_filename(value, replacement)
+op_sanitize_filename(value, replacement, truncate, windows)
+op_sanitize_filename_check(value) op_sanitize_filename_check(value, truncate, windows)
 ```
 
 `rename` 脚本不动函数名（那是你的域代码）：换完扩展名顺手把示例函数与 `test/sql/*.test` 一起改成

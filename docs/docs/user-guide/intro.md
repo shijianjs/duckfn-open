@@ -20,7 +20,7 @@ whether that string can be used as a file name at all.
 
 Loading the extension registers nine function names and twenty-one signatures, and every one of them is
 scalar: no aggregate functions, no table functions. It also registers one STRUCT type,
-`op_write_options(dir VARCHAR, "name" VARCHAR, part VARCHAR)`, which carries the three optional
+`op_write_file_options(dir VARCHAR, "name" VARCHAR, part VARCHAR)`, which carries the three optional
 settings of the write family; like any registered type it shows in `duckdb_types()` rather than in
 `duckdb_functions()`. The two filename functions register no type of their own.
 
@@ -40,9 +40,9 @@ path that the first group can work with.
 
 | Function | Kind | What it does |
 | --- | --- | --- |
-| [`op_write(content, ext)`](./functions.md#op_write) | scalar | Writes the content out and returns its path, starting nothing. |
-| [`op_write(content, ext, opts)`](./functions.md#op_write) | scalar | The same, with the directory, the file name and a name segment chosen through `op_write_options`. |
-| [`op_open_content(…)`](./functions.md#op_open_content) | scalar | The four signatures of `op_write` plus a launch: writes it out, opens it with the default program, returns the path. |
+| [`op_write_file(content, ext)`](./functions.md#op_write_file) | scalar | Writes the content out and returns its path, starting nothing. |
+| [`op_write_file(content, ext, opts)`](./functions.md#op_write_file) | scalar | The same, with the directory, the file name and a name segment chosen through `op_write_file_options`. |
+| [`op_open_content(…)`](./functions.md#op_open_content) | scalar | The four signatures of `op_write_file` plus a launch: writes it out, opens it with the default program, returns the path. |
 | [`op_open_html(content)`](./functions.md#op_open_html) | scalar | The zero-configuration shortcut for HTML: `op_open_content(content, 'html')` with every option left at its default. |
 | [`op_print(text)`](./functions.md#op_print) | scalar | Writes the text straight to stdout, past the result set's formatting; always returns NULL. |
 | [`op_print(text, tail)`](./functions.md#op_print) | scalar | The same, with what to append after the text instead of a newline. |
@@ -53,11 +53,11 @@ name?
 
 | Function | Kind | What it does |
 | --- | --- | --- |
-| [`op_filename(value)`](./functions.md#op_filename) | scalar | Rewrites a string into something usable as a file name, deleting what cannot be in one. |
-| [`op_filename(value, replacement)`](./functions.md#op_filename) | scalar | The same, with what to put where an illegal character was, so the edits show. |
-| [`op_filename(value, replacement, truncate, windows)`](./functions.md#op_filename) | scalar | The same, plus the 255-byte cut and the Windows rules as two switches. |
-| [`op_filename_check(value)`](./functions.md#op_filename_check) | scalar | Rewrites nothing: `true` when the value is already a usable name. |
-| [`op_filename_check(value, truncate, windows)`](./functions.md#op_filename_check) | scalar | The same question, with the two switches. |
+| [`op_sanitize_filename(value)`](./functions.md#op_sanitize_filename) | scalar | Rewrites a string into something usable as a file name, deleting what cannot be in one. |
+| [`op_sanitize_filename(value, replacement)`](./functions.md#op_sanitize_filename) | scalar | The same, with what to put where an illegal character was, so the edits show. |
+| [`op_sanitize_filename(value, replacement, truncate, windows)`](./functions.md#op_sanitize_filename) | scalar | The same, plus the 255-byte cut and the Windows rules as two switches. |
+| [`op_sanitize_filename_check(value)`](./functions.md#op_sanitize_filename_check) | scalar | Rewrites nothing: `true` when the value is already a usable name. |
+| [`op_sanitize_filename_check(value, truncate, windows)`](./functions.md#op_sanitize_filename_check) | scalar | The same question, with the two switches. |
 
 ## Install it
 
@@ -71,14 +71,14 @@ Then call the functions in any query:
 ```sql
 SELECT op_open_path('/var/tmp/report.html');        -- the program your desktop uses for .html
 SELECT op_open_path_detached('https://duckdb.org'); -- returns without waiting for the page to close
-SELECT op_write('{"a": 1}', 'json');           -- a file and its path; nothing is started
+SELECT op_write_file('{"a": 1}', 'json');           -- a file and its path; nothing is started
 SELECT op_open_html('<h1>hello</h1>');              -- a temporary .html, opened in the default browser
-SELECT op_filename('quarterly/report:v2.csv'); -- 'quarterlyreportv2.csv' — a string, nothing else
+SELECT op_sanitize_filename('quarterly/report:v2.csv'); -- 'quarterlyreportv2.csv' — a string, nothing else
 ```
 
 Nothing on these pages runs for you: this is documentation, and every example is plain SQL for a DuckDB
 that has loaded the extension. The query below only reads the catalog, so it is the safest one to try
-first: it needs no desktop, and neither do `op_write`, `op_print` or the filename family — one writes a
+first: it needs no desktop, and neither do `op_write_file`, `op_print` or the filename family — one writes a
 file, one writes to stdout, and the other two rewrite a string and stop there. Launching does need a
 desktop: on a machine that has none (a server, a CI runner) the four `op_open_path` actions answer `false`,
 while `op_open_content` and `op_open_html` raise an error carrying the path they did write.
@@ -100,7 +100,7 @@ loop are "how many windows is this going to open" and "on whose machine is this 
 whose arguments are all constants is folded by DuckDB into a single execution, which is why
 `SELECT op_open_path('report.html')` opens one window and `SELECT op_open_path(p) FROM reports` opens one per
 row — there is no deduplication. Nothing else starts a process: `op_open_commands` only lists the commands a
-launch would try, `op_write` writes a file and stops there — which is what lets you hand the path to
+launch would try, `op_write_file` writes a file and stops there — which is what lets you hand the path to
 `op_open_path` yourself — `op_print` only writes to stdout, and the two filename names never leave the
 string they were given.
 

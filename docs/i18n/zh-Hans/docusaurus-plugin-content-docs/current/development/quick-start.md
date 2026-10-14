@@ -49,7 +49,7 @@ just rename csv_stats
 2. **模板自带的示例函数与 `test/sql/*.test`** —— 换成你自己的 API，见[编写函数](./writing-functions.md)
    与[测试](./testing.md)。本仓库已经走完这一步：`src/extension/functions/` 下七个函数文件（覆盖九个 SQL
    名字）、`src/extension/launcher.rs` 这层平台代码、`src/extension/writer.rs` 这层落盘代码、
-   `src/extension/types/op_write_options.rs` 里那个选项 STRUCT，以及 `test/sql/` 下按函数文件各一份的用例
+   `src/extension/types/op_write_file_options.rs` 里那个选项 STRUCT，以及 `test/sql/` 下按函数文件各一份的用例
    再加一份冒烟测试。
 3. **`community-extension/description.yml`** —— `extension.name` / `description` / `maintainers` / `repo`
    由你填，逐个字段的说明在[社区扩展](./community-extension.md)。
@@ -94,14 +94,14 @@ op_open_path(path)                     op_open_path(path, app)
 op_open_path_detached(path)            op_open_path_detached(path, app)
 op_open_commands(path)
 
-op_write(content|blob, ext)            op_write(content|blob, ext, opts)
+op_write_file(content|blob, ext)       op_write_file(content|blob, ext, opts)
 op_open_content(content|blob, ext)     op_open_content(content|blob, ext, opts)
 op_open_html(content)
 op_print(text)                         op_print(text, tail)
 
-op_filename(value)                     op_filename(value, replacement)
-op_filename(value, replacement, truncate, windows)
-op_filename_check(value)               op_filename_check(value, truncate, windows)
+op_sanitize_filename(value)            op_sanitize_filename(value, replacement)
+op_sanitize_filename(value, replacement, truncate, windows)
+op_sanitize_filename_check(value)      op_sanitize_filename_check(value, truncate, windows)
 ```
 
 它注册的那一个类型，就是落盘那一族的选项参数：
@@ -112,7 +112,7 @@ FROM duckdb_types()
 WHERE starts_with(type_name, 'op_');
 ```
 
-也就是 `op_write_options(dir VARCHAR, "name" VARCHAR, part VARCHAR)` —— `name` 之所以要带引号，是因为
+也就是 `op_write_file_options(dir VARCHAR, "name" VARCHAR, part VARCHAR)` —— `name` 之所以要带引号，是因为
 NAME 在 DuckDB 的语法里是关键字。上面这些签名与类型都是在 Rust 里声明的，见[编写函数](./writing-functions.md)。
 文件名那一对不跟着注册类型：它的参数就是普通的 `VARCHAR` 与 `BOOLEAN` —— 这一条值得在用例里断言一次，
 因为 Rust 侧的参数名不是 SQL 类型。
@@ -129,11 +129,11 @@ SELECT op_open_path(NULL) AS opened;   -- NULL 输入被短路，一次启动器
 SELECT op_open_path('');    -- 报错：路径或 URL 不能为空
 ```
 
-落盘那一族在任何机器上的答案都相同，因为它根本不需要桌面：`op_write` 返回它写出的路径、不起任何进程，
+落盘那一族在任何机器上的答案都相同，因为它根本不需要桌面：`op_write_file` 返回它写出的路径、不起任何进程，
 `op_print` 把文字打到控制台、返回 `NULL`。
 
 ```sql
-SELECT op_write('report body', 'md', {'dir':'./out', 'name':'report', 'part':NULL});
+SELECT op_write_file('report body', 'md', {'dir':'./out', 'name':'report', 'part':NULL});
 -- ./out/report.md —— 目录不存在就建出来，什么都不起
 
 SELECT op_print('row ' || x) FROM range(3) t(x);  -- 控制台三行，SQL 里三个 NULL
@@ -147,16 +147,16 @@ SELECT op_print('row ' || x) FROM range(3) t(x);  -- 控制台三行，SQL 里�
 一族的助手，后者用的是同一个库、却是另一套策略。
 
 ```sql
-SELECT op_filename('quarterly/report:v2.csv');    -- 'quarterlyreportv2.csv'：缺省是把非法字符删掉，不是替换
-SELECT op_filename('a/b:c?.txt', '_');            -- 'a_b_c_.txt'：给上替换符，才看得见它在哪里改过
-SELECT op_filename_check('CON.txt');              -- false：Windows 的保留设备名
+SELECT op_sanitize_filename('quarterly/report:v2.csv');    -- 'quarterlyreportv2.csv'：缺省是把非法字符删掉，不是替换
+SELECT op_sanitize_filename('a/b:c?.txt', '_');            -- 'a_b_c_.txt'：给上替换符，才看得见它在哪里改过
+SELECT op_sanitize_filename_check('CON.txt');              -- false：Windows 的保留设备名
 SELECT count(*) FROM (VALUES ('a.txt'), ('b/c.txt')) t(name)
-WHERE NOT op_filename_check(name);                -- 1：有多少名字会被动到，而这里一个都不改
+WHERE NOT op_sanitize_filename_check(name);                -- 1：有多少名字会被动到，而这里一个都不改
 ```
 
-`op_filename` 没有三个参数那一档：`truncate` 与 `windows` 只能成对给，所以 `op_filename(x, '_', true)`
+`op_sanitize_filename` 没有三个参数那一档：`truncate` 与 `windows` 只能成对给，所以 `op_sanitize_filename(x, '_', true)`
 是 binder 报错。这一处缺口是这份 API 里唯一的压缩，不是漏写 —— 理由写在
-`src/extension/functions/scalar_op_filename.rs` 的注释里。
+`src/extension/functions/scalar_op_sanitize_filename.rs` 的注释里。
 
 真去 launch 会答什么都取决于这台机器的桌面：装了哪些启动器、`.html` 关联到了谁。也没有第二个可以跑它的
 地方 —— 这个扩展只构建桌面平台，见[构建与发版](./build-and-release.md)。
@@ -184,8 +184,8 @@ just sql "SELECT op_open_path(NULL)"
 just test           # make configure + make debug + make test，最后清掉测试写出来的东西
 ```
 
-`test/sql/` 下有八份用例，其中三分会真的执行：`op_write.test` 写文件再把内容读回来，`op_print.test`
-往 stdout 写，`op_filename.test` 逐字断言它拿回来的那些改写 —— 不起进程、不碰文件系统，所以那里没有
+`test/sql/` 下有八份用例，其中三分会真的执行：`op_write_file.test` 写文件再把内容读回来，`op_print.test`
+往 stdout 写，`op_sanitize_filename.test` 逐字断言它拿回来的那些改写 —— 不起进程、不碰文件系统，所以那里没有
 一条断言依赖这台机器。写出来的文件就落在 `test/sql/` 下（`named/`、`blob/`、`unique/` 这些），既被 git 忽略，
 也会被最后那步清理掉。清理、更快的迭代方式，以及新增函数该覆盖什么，都在[测试](./testing.md)里。
 

@@ -22,12 +22,12 @@ flowchart LR
 
 ## What this extension registers
 
-Nine SQL names, twenty-one signatures, all scalar, plus one STRUCT type (`op_write_options`) that carries
+Nine SQL names, twenty-one signatures, all scalar, plus one STRUCT type (`op_write_file_options`) that carries
 the optional arguments of the write family. Most bodies hold no logic of their own: they validate the
 argument and hand it to `launcher.rs` or `writer.rs` — the crates that start a program and the crates that
 write a file live behind those two layers, not here (see [project structure](./project-structure.md)). Two
 files are the exceptions: `op_print`, whose entire job is a write to stdout, keeps that write in its file,
-and `scalar_op_filename.rs` calls neither layer at all — it wires the `sanitize-filename` crate's own
+and `scalar_op_sanitize_filename.rs` calls neither layer at all — it wires the `sanitize-filename` crate's own
 surface straight to SQL, with the crate's defaults instead of the write family's policy (the write path still
 goes through `writer.rs`, which uses the same crate under a different one). The
 SQL-side semantics of every row below — what each value means to a caller — is the
@@ -40,25 +40,25 @@ SQL-side semantics of every row below — what each value means to a caller — 
 | `op_open_path_detached` | `VARCHAR -> BOOLEAN` | `op_open_path_detached` | `scalar_op_open_path.rs` | Returns as soon as the launcher started. |
 | `op_open_path_detached` | `VARCHAR, VARCHAR -> BOOLEAN` | `op_open_path_detached_with` | `scalar_op_open_path.rs` | Same, with the program named. |
 | `op_open_commands` | `VARCHAR -> VARCHAR[]` | `op_open_commands` | `scalar_op_open_commands.rs` | Lists the candidate commands, starts no process. |
-| `op_write` | `VARCHAR, VARCHAR -> VARCHAR` | `op_write` | `scalar_op_write.rs` | Writes text out, returns the path, starts nothing. |
-| `op_write` | `VARCHAR, VARCHAR, op_write_options -> VARCHAR` | `op_write_with` | `scalar_op_write.rs` | Same, with the directory / name / segment chosen. |
-| `op_write` | `BLOB, VARCHAR -> VARCHAR` | `op_write_blob` | `scalar_op_write.rs` | Binary content, written as the bytes it is. |
-| `op_write` | `BLOB, VARCHAR, op_write_options -> VARCHAR` | `op_write_blob_with` | `scalar_op_write.rs` | Same, with the options. |
+| `op_write_file` | `VARCHAR, VARCHAR -> VARCHAR` | `op_write_file` | `scalar_op_write_file.rs` | Writes text out, returns the path, starts nothing. |
+| `op_write_file` | `VARCHAR, VARCHAR, op_write_file_options -> VARCHAR` | `op_write_file_with` | `scalar_op_write_file.rs` | Same, with the directory / name / segment chosen. |
+| `op_write_file` | `BLOB, VARCHAR -> VARCHAR` | `op_write_file_blob` | `scalar_op_write_file.rs` | Binary content, written as the bytes it is. |
+| `op_write_file` | `BLOB, VARCHAR, op_write_file_options -> VARCHAR` | `op_write_file_blob_with` | `scalar_op_write_file.rs` | Same, with the options. |
 | `op_open_content` | `VARCHAR, VARCHAR -> VARCHAR` | `op_open_content` | `scalar_op_open_content.rs` | Writes it out, then opens it. |
-| `op_open_content` | `VARCHAR, VARCHAR, op_write_options -> VARCHAR` | `op_open_content_with` | `scalar_op_open_content.rs` | Same, with the options. |
+| `op_open_content` | `VARCHAR, VARCHAR, op_write_file_options -> VARCHAR` | `op_open_content_with` | `scalar_op_open_content.rs` | Same, with the options. |
 | `op_open_content` | `BLOB, VARCHAR -> VARCHAR` | `op_open_content_blob` | `scalar_op_open_content.rs` | Binary content. |
-| `op_open_content` | `BLOB, VARCHAR, op_write_options -> VARCHAR` | `op_open_content_blob_with` | `scalar_op_open_content.rs` | Binary content, with the options. |
+| `op_open_content` | `BLOB, VARCHAR, op_write_file_options -> VARCHAR` | `op_open_content_blob_with` | `scalar_op_open_content.rs` | Binary content, with the options. |
 | `op_open_html` | `VARCHAR -> VARCHAR` | `op_open_html` | `scalar_op_open_html.rs` | `op_open_content` with everything default and `html` pinned. |
 | `op_print` | `VARCHAR -> VARCHAR` | `op_print` | `scalar_op_print.rs` | Writes to stdout, then a newline. Always returns NULL. |
 | `op_print` | `VARCHAR, VARCHAR -> VARCHAR` | `op_print_with_tail` | `scalar_op_print.rs` | Same, with what to append instead of the newline. |
-| `op_filename` | `VARCHAR -> VARCHAR` | `op_filename` | `scalar_op_filename.rs` | Rewrites a string into a usable file name; the crate's defaults (illegal characters deleted, 255-byte cut on, Windows rules on). |
-| `op_filename` | `VARCHAR, VARCHAR -> VARCHAR` | `op_filename_with_replacement` | `scalar_op_filename.rs` | Same, with what to substitute instead of deleting. |
-| `op_filename` | `VARCHAR, VARCHAR, BOOLEAN, BOOLEAN -> VARCHAR` | `op_filename_with_options` | `scalar_op_filename.rs` | The substitution plus both switches in one call: the 255-byte cut and the Windows rules. |
-| `op_filename_check` | `VARCHAR -> BOOLEAN` | `op_filename_check` | `scalar_op_filename.rs` | Rewrites nothing: is this already a usable name? |
-| `op_filename_check` | `VARCHAR, BOOLEAN, BOOLEAN -> BOOLEAN` | `op_filename_check_with_options` | `scalar_op_filename.rs` | Same question, with the two switches. |
+| `op_sanitize_filename` | `VARCHAR -> VARCHAR` | `op_sanitize_filename` | `scalar_op_sanitize_filename.rs` | Rewrites a string into a usable file name; the crate's defaults (illegal characters deleted, 255-byte cut on, Windows rules on). |
+| `op_sanitize_filename` | `VARCHAR, VARCHAR -> VARCHAR` | `op_sanitize_filename_with_replacement` | `scalar_op_sanitize_filename.rs` | Same, with what to substitute instead of deleting. |
+| `op_sanitize_filename` | `VARCHAR, VARCHAR, BOOLEAN, BOOLEAN -> VARCHAR` | `op_sanitize_filename_with_options` | `scalar_op_sanitize_filename.rs` | The substitution plus both switches in one call: the 255-byte cut and the Windows rules. |
+| `op_sanitize_filename_check` | `VARCHAR -> BOOLEAN` | `op_sanitize_filename_check` | `scalar_op_sanitize_filename.rs` | Rewrites nothing: is this already a usable name? |
+| `op_sanitize_filename_check` | `VARCHAR, BOOLEAN, BOOLEAN -> BOOLEAN` | `op_sanitize_filename_check_with_options` | `scalar_op_sanitize_filename.rs` | Same question, with the two switches. |
 
 `NULL` in and nothing runs: a `NULL` path launches nothing, a `NULL` content writes no file, a `NULL` text
-prints nothing, a `NULL` in any argument of the `op_filename` pair rewrites nothing on that row — and the
+prints nothing, a `NULL` in any argument of the `op_sanitize_filename` pair rewrites nothing on that row — and the
 answer is `NULL` either way, which is how SQL tells "no input on this row" apart from "no launcher could be
 started" (`false`), from a path it did write, and from a name that is not yet usable (`false` there is an
 answer; `NULL` there was no input).
@@ -95,9 +95,9 @@ pub(super) fn op_open_path(path: String) -> DuckOptionResult<bool> {
 
 That is the shape every function here uses, with the value type doing the rest of the talking:
 
-- `DuckOptionResult<bool>` for the launch family and for `op_filename_check` — the verdict is the return
+- `DuckOptionResult<bool>` for the launch family and for `op_sanitize_filename_check` — the verdict is the return
   value;
-- `DuckOptionResult<String>` for the write family and for `op_open_html` (a path), for `op_filename` (the
+- `DuckOptionResult<String>` for the write family and for `op_open_html` (a path), for `op_sanitize_filename` (the
   rewritten name), and for `op_print` (always `Ok(None)`, since the text already went to stdout and SQL has
   nothing left to say);
 - `DuckOptionResult<Vec<String>>` for `op_open_commands`: a `Vec<T>` *is* a SQL list, so the return type is
@@ -114,37 +114,37 @@ with `?` inside its own `DuckOptionResult`.
 
 ### Several signatures under one name
 
-Seven of the nine names carry more than one signature: `op_write` and `op_open_content` four each (text and
+Seven of the nine names carry more than one signature: `op_write_file` and `op_open_content` four each (text and
 binary × with and without the options), `op_open_path` and `op_open_path_detached` two each (`(path)`,
-`(path, app)`), `op_print` two (`(text)`, `(text, tail)`), `op_filename` three (`(value)`,
-`(value, replacement)`, `(value, replacement, truncate, windows)`) and `op_filename_check` two (`(value)`,
+`(path, app)`), `op_print` two (`(text)`, `(text, tail)`), `op_sanitize_filename` three (`(value)`,
+`(value, replacement)`, `(value, replacement, truncate, windows)`) and `op_sanitize_filename_check` two (`(value)`,
 `(value, truncate, windows)`). Only the first one under each name registers under its own Rust name; the rest
 are separate Rust functions folded in by `overloads_name`:
 
 ```rust
-#[duck_scalar_function(overloads_name = "op_write")]
-pub(super) fn op_write_blob_with(
+#[duck_scalar_function(overloads_name = "op_write_file")]
+pub(super) fn op_write_file_blob_with(
     content: DuckBlob,
     extension: String,
     options: OpenWriteOptions,
 ) -> DuckOptionResult<String> {
-    write_bytes(op_write::SQL_NAME, &content.value, &extension, Some(&options))
+    write_bytes(op_write_file::SQL_NAME, &content.value, &extension, Some(&options))
 }
 ```
 
 The catalog then shows one SQL name with four signatures — two of length 2 and two of length 3, one of
-each pair taking `BLOB` — and the Rust branch names (`op_write_with`, `op_write_blob`,
-`op_write_blob_with`) never leak out as extra functions. `test/sql/op_write.test` asserts exactly that
+each pair taking `BLOB` — and the Rust branch names (`op_write_file_with`, `op_write_file_blob`,
+`op_write_file_blob_with`) never leak out as extra functions. `test/sql/op_write_file.test` asserts exactly that
 shape, and so does `test/sql/op_open_path.test` for the two-signature case.
 
 The name `overloads_name` gives is also the name the generated `SQL_NAME` constant holds, so the four
-signatures above all report themselves as `op_write: …`. That is what makes the shared helper (`write_bytes`
+signatures above all report themselves as `op_write_file: …`. That is what makes the shared helper (`write_bytes`
 here) usable by all of them: the prefix is a parameter, and each signature passes its own `SQL_NAME`.
 
-The arities under one name need not be contiguous either: `op_filename` is registered at 1, 2 and 4
+The arities under one name need not be contiguous either: `op_sanitize_filename` is registered at 1, 2 and 4
 arguments, because `truncate` and `windows` can only be passed together — the one compression in this API, and
-the reason `SELECT op_filename('a.txt', '_', true)` is a `Binder Error` rather than "the third switch
-defaulted". `test/sql/op_filename.test` asserts both the `1 / 2 / 4` shape and that missing arity.
+the reason `SELECT op_sanitize_filename('a.txt', '_', true)` is a `Binder Error` rather than "the third switch
+defaulted". `test/sql/op_sanitize_filename.test` asserts both the `1 / 2 / 4` shape and that missing arity.
 
 ### Parameter types in use
 
@@ -153,17 +153,17 @@ A parameter's Rust type decides how the column is read; these are what this exte
 | Rust parameter | SQL type | Why this one |
 | --- | --- | --- |
 | `path: String` | `VARCHAR` | Text in, and a NULL row short-circuits (see below). |
-| `content: DuckBlob` | `BLOB` | Bytes in and bytes out, untouched — `content.value` is a `Vec<u8>`. Image bytes must not be pushed through UTF-8, which is why `op_write` / `op_open_content` each carry a text pair and a binary pair. |
-| `options: OpenWriteOptions` | `op_write_options` | The STRUCT this extension registers, for the three optional settings. |
-| `truncate: bool`, `windows: bool` | `BOOLEAN` | The two `sanitize-filename` switches, given only as a pair (see [Several signatures under one name](#several-signatures-under-one-name)). `op_filename_check` takes no `replacement`: a question that rewrites nothing has nothing to substitute. |
+| `content: DuckBlob` | `BLOB` | Bytes in and bytes out, untouched — `content.value` is a `Vec<u8>`. Image bytes must not be pushed through UTF-8, which is why `op_write_file` / `op_open_content` each carry a text pair and a binary pair. |
+| `options: OpenWriteOptions` | `op_write_file_options` | The STRUCT this extension registers, for the three optional settings. |
+| `truncate: bool`, `windows: bool` | `BOOLEAN` | The two `sanitize-filename` switches, given only as a pair (see [Several signatures under one name](#several-signatures-under-one-name)). `op_sanitize_filename_check` takes no `replacement`: a question that rewrites nothing has nothing to substitute. |
 
 ### A STRUCT argument: three things that will bite
 
-`op_write_options` is defined once, in `src/extension/types/op_write_options.rs`:
+`op_write_file_options` is defined once, in `src/extension/types/op_write_file_options.rs`:
 
 ```rust
 #[derive(Clone, Debug, Default, DuckStruct)]
-#[duck(sql_name = "op_write_options", create_type = "replace")]
+#[duck(sql_name = "op_write_file_options", create_type = "replace")]
 pub(crate) struct OpenWriteOptions {
     pub dir: Option<String>,
     pub name: Option<String>,
@@ -181,17 +181,17 @@ pub(crate) struct OpenWriteOptions {
    not duckfn: the argument type is the full `STRUCT(dir VARCHAR, "name" VARCHAR, part VARCHAR)`.
 
    ```sql
-   SELECT op_write(svg, 'svg', {'dir':'./out'});
+   SELECT op_write_file(svg, 'svg', {'dir':'./out'});
    -- Binder Error: No function matches the given name and argument types
-   --   'op_write(STRING_LITERAL, STRING_LITERAL, STRUCT(dir VARCHAR))'
+   --   'op_write_file(STRING_LITERAL, STRING_LITERAL, STRUCT(dir VARCHAR))'
 
-   SELECT op_write(svg, 'svg', {'dir':'./out'}::op_write_options);   -- fine
-   SELECT op_write(svg, 'svg', {'dir':'./out', 'name':NULL, 'part':'sales'});    -- also fine
+   SELECT op_write_file(svg, 'svg', {'dir':'./out'}::op_write_file_options);   -- fine
+   SELECT op_write_file(svg, 'svg', {'dir':'./out', 'name':NULL, 'part':'sales'});    -- also fine
    ```
 
    The field is displayed as `"name"` because NAME is a keyword in DuckDB's grammar; `name:` and `'name':`
    both work in a literal.
-3. **A NULL STRUCT short-circuits like any other NULL argument.** `op_write('a', 'txt', NULL)` answers
+3. **A NULL STRUCT short-circuits like any other NULL argument.** `op_write_file('a', 'txt', NULL)` answers
    `NULL` and writes nothing — it does *not* mean "use the defaults for what is missing". A function that
    wants "options omitted means defaults" is written as two signatures (which is exactly what the write
    family does), not as a NULL-tolerant options argument.
@@ -204,7 +204,7 @@ Argument nullability is decided by the parameter type, and it applies to aggrega
   duckfn's argument reader; the body never runs for that row, so no launcher is called and no file is
   written. This is what you want most of the time.
 - **`truncate: bool`** — the same short-circuit on a BOOLEAN argument: a NULL switch answers `NULL` for that
-  row rather than quietly taking the default. That matters for the `op_filename` family, whose defaults
+  row rather than quietly taking the default. That matters for the `op_sanitize_filename` family, whose defaults
   follow the crate: "this row gave no switch" and "this row gave no input" have to stay two different answers.
 - **`path: Option<String>`** — NULL reaches the body as `None` and its meaning is yours to decide
   (return NULL, substitute a default, count NULLs, …).
@@ -221,9 +221,9 @@ why those functions are `pub(super)`: the generated module inherits the function
 The write family reports the same way, one message per setting it cannot use:
 
 ```text
-op_write: the extension must not be empty (pass e.g. 'html', not '')
-op_write: op_write_options.dir must not be empty
-op_write: op_write_options.name is not a usable file name: '/'
+op_write_file: the extension must not be empty (pass e.g. 'html', not '')
+op_write_file: op_write_file_options.dir must not be empty
+op_write_file: op_write_file_options.name is not a usable file name: '/'
 ```
 
 Those three come from different places and are shaped the same: the prefix is `SQL_NAME` (added in the
@@ -291,9 +291,9 @@ aggregate chapter of the duckfn guide for the shapes it supports.
 2. **Copy the closest function** from `src/extension/functions/` and change the logic, rather than
    inventing a signature from scratch. `scalar_op_open_commands.rs` is the smallest complete one (a
    `VARCHAR -> VARCHAR[]` scalar whose body is two lines); `scalar_op_print.rs` adds the second signature
-   and the `overloads_name` merge; `scalar_op_write.rs` is the one to copy when a name needs several
+   and the `overloads_name` merge; `scalar_op_write_file.rs` is the one to copy when a name needs several
    signatures plus an options argument; `scalar_op_open_html.rs` shows a shortcut name that fixes the options
-   instead of exposing them; `scalar_op_filename.rs` is the one to copy when the function reaches neither
+   instead of exposing them; `scalar_op_sanitize_filename.rs` is the one to copy when the function reaches neither
    layer, several arities share one name, and one arity is deliberately left out.
 3. **Put the work in the layer that owns it.** A body here does validation and one call. Starting a program
    and anything that differs per target — `#[cfg]`, a crate only one platform can compile — belongs in
@@ -301,7 +301,7 @@ aggregate chapter of the duckfn guide for the shapes it supports.
    generated name, file-name legality), belongs in `src/extension/writer.rs`. Both exist so the function
    files keep seeing one shape and two SQL names can share one rule. A function whose whole domain is a value
    with no process and no file behind it has no layer to call and stays in its file — that is
-   `scalar_op_filename.rs`, and it is a sibling of those two layers, not a client of either. This project
+   `scalar_op_sanitize_filename.rs`, and it is a sibling of those two layers, not a client of either. This project
    builds for desktop targets only, so there is no `#[cfg]` in the tree and every dependency is an ordinary
    `[dependencies]` entry rather than a `[target.'cfg(…)'.dependencies]` one; keep it that way unless you
    actually add a second target family. See [project structure](./project-structure.md).
@@ -323,9 +323,9 @@ aggregate chapter of the duckfn guide for the shapes it supports.
    `duckfn::doc::declared_function_descriptions()`, which folds a whole function set into **one** row and
    takes the first non-empty value in the order `inventory` iterates — **link order, not source order**. Two
    overloads both carrying a description would make the exported row depend on which one the linker happened
-   to see first, so exactly one does: which is how `op_write_with` is written, and why the two extra
-   `op_filename` signatures and the extra `op_filename_check` one carry nothing. An `example` on a
-   folded-in signature is the exception and is fine to add (`op_write_blob` carries one) — examples are
+   to see first, so exactly one does: which is how `op_write_file_with` is written, and why the two extra
+   `op_sanitize_filename` signatures and the extra `op_sanitize_filename_check` one carry nothing. An `example` on a
+   folded-in signature is the exception and is fine to add (`op_write_file_blob` carries one) — examples are
    concatenated and de-duplicated, so a signature can contribute its own call without disturbing the others.
    DuckDB's C extension API has no way to set a description or an example, so this text is the only
    source for the `Added Functions` table on the community-extension page. `just docs_csv` exports it
@@ -339,12 +339,12 @@ aggregate chapter of the duckfn guide for the shapes it supports.
 Every SQL name carries one short prefix (`op_` here), and the part after it should read like what the
 function does. A prefixed name is also what users type, so resist doubling it: the names that really launch
 something are `op_open_path`, not `open_open_path`, and the ones that never start a process say `op_`
-without saying "open" — `op_write`, `op_print`, `op_filename`.
+without saying "open" — `op_write_file`, `op_print`, `op_sanitize_filename`.
 
 The attribute registers the **Rust function name** by default, which is why `op_open_commands`, `op_open_html`,
-`op_print`'s first signature, `op_filename` and `op_filename_check` need no extra argument at all — the
+`op_print`'s first signature, `op_sanitize_filename` and `op_sanitize_filename_check` need no extra argument at all — the
 Rust name and the SQL name are the same string. Another signature under a name already in
-use comes through `overloads_name = "op_write"` instead (see [Several signatures under one
+use comes through `overloads_name = "op_write_file"` instead (see [Several signatures under one
 name](#several-signatures-under-one-name)), and then the Rust name and the SQL name differ on purpose — the
 SQL side only ever shows the `overloads_name` value.
 
@@ -367,7 +367,7 @@ row being the point. The pattern (a named STRUCT type plus a lazy argument) is d
 guide and used throughout
 [duckfn_quantstats](https://github.com/shijianjs/duckfn-quantstats).
 
-A third answer is "register nothing", and `op_filename` uses it: two BOOLEAN switches that only make sense
+A third answer is "register nothing", and `op_sanitize_filename` uses it: two BOOLEAN switches that only make sense
 together stay positional (which is what leaves the three-argument form out), so that family adds no SQL type
 — `duckdb_types()` shows nothing new for it. A named options STRUCT pays for its registration when several
-settings can be omitted *independently*, which is exactly `op_write_options`'s three `VARCHAR` fields.
+settings can be omitted *independently*, which is exactly `op_write_file_options`'s three `VARCHAR` fields.

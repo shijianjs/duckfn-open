@@ -22,7 +22,7 @@ docs:
     SELECT op_open_path('./report.html');
 
     -- Most query output is content, not a path: write it out and get the path back, starting nothing
-    SELECT op_write('{"a":1}', 'json');
+    SELECT op_write_file('{"a":1}', 'json');
 
     -- NULL input starts nothing, so SQL can tell "no input" from "could not open"
     SELECT op_open_path(NULL);
@@ -40,12 +40,12 @@ docs:
     | `op_open_path(path[, app])` | `VARCHAR[, VARCHAR]` -> `BOOLEAN` | opens a path or URL, waiting for the launcher |
     | `op_open_path_detached(path[, app])` | `VARCHAR[, VARCHAR]` -> `BOOLEAN` | the same, returning as soon as the launcher started |
     | `op_open_commands(path)` | `VARCHAR` -> `VARCHAR[]` | lists the launcher commands, runs none |
-    | `op_write(content, ext[, opts])` | `VARCHAR` or `BLOB` -> `VARCHAR` | writes content to a file, returns its path, starts nothing |
+    | `op_write_file(content, ext[, opts])` | `VARCHAR` or `BLOB` -> `VARCHAR` | writes content to a file, returns its path, starts nothing |
     | `op_open_content(content, ext[, opts])` | `VARCHAR` or `BLOB` -> `VARCHAR` | writes it and opens it in one call |
     | `op_open_html(content)` | `VARCHAR` -> `VARCHAR` | the zero-config shortcut: a temporary `.html` in the default browser |
     | `op_print(text[, tail])` | `VARCHAR` -> `NULL` | writes to stdout, past the result set's column formatting |
-    | `op_filename(value[, replacement[, truncate, windows]])` | `VARCHAR` -> `VARCHAR` | rewrites a string into a usable file name, touching neither file nor process |
-    | `op_filename_check(value[, truncate, windows])` | `VARCHAR` -> `BOOLEAN` | rewrites nothing: is this string already a usable name |
+    | `op_sanitize_filename(value[, replacement[, truncate, windows]])` | `VARCHAR` -> `VARCHAR` | rewrites a string into a usable file name, touching neither file nor process |
+    | `op_sanitize_filename_check(value[, truncate, windows])` | `VARCHAR` -> `BOOLEAN` | rewrites nothing: is this string already a usable name |
 
     Three outcomes are distinguishable in SQL for the launch functions, and that is the whole contract:
     `NULL` means the row had no input (a NULL argument never reaches a launcher, and never writes a file),
@@ -58,7 +58,7 @@ docs:
     The write half returns a path, which moves where a failure can be written: `op_open_content` and
     `op_open_html` report a launcher that cannot start as an **error carrying that path**, because the file
     really is on disk and a bare `false` would throw the path away. Their three options ride in an
-    `op_write_options` STRUCT (`dir`, `name`, `part`): the extension is required, the directory defaults
+    `op_write_file_options` STRUCT (`dir`, `name`, `part`): the extension is required, the directory defaults
     to the system temp directory and is created with its parents when missing, and with no `name` one is
     generated as `open-<time>-<part>-<random>.<ext>`. File-name legality (illegal and control characters,
     Windows reserved device names, trailing dots and spaces) is `sanitize-filename`'s job, and the random
@@ -73,7 +73,7 @@ docs:
     is the same on a headless CI runner as on a workstation, which is why it is also the example worth
     copying into a test.
 
-    `op_filename` and `op_filename_check` start no process and open no file: they put the
+    `op_sanitize_filename` and `op_sanitize_filename_check` start no process and open no file: they put the
     `sanitize-filename` crate's own rules and defaults on SQL, so a file name taken from the data itself —
     a customer name, a report title, a crawled `path` column — can be made usable before anything is
     composed onto it, and counted by the check half without being rewritten. Illegal and control characters,

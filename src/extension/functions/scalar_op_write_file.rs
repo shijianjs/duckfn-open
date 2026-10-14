@@ -2,24 +2,24 @@
 // 标量函数：把一段**内容**写成一个文件，返回它的路径（不起任何进程）
 //
 // 这个扩展的其余函数都从「一个路径」出发，而 SQL 探索时手里常是一段内容：渲染好的 HTML、SVG、一份
-// CSV、BLOB 里的 PNG 字节。启动器不认内容，所以中间这一步必须有 —— 它就是 `op_write`。
+// CSV、BLOB 里的 PNG 字节。启动器不认内容，所以中间这一步必须有 —— 它就是 `op_write_file`。
 //
-//   op_write(content, ext)                 op_write(content, ext, opts)
-//   op_write(blob,  ext)                   op_write(blob,  ext, opts)
+//   op_write_file(content, ext)                 op_write_file(content, ext, opts)
+//   op_write_file(blob,  ext)                   op_write_file(blob,  ext, opts)
 //
 // 第 2 个参数（后缀）**必填**：它决定系统怎么看待这个文件（`.html` 交给浏览器、`.png` 交给图片查看器），
-// 猜不得。`dir` / `name` / `part` 三个都可选，装在 STRUCT 里（见 types/op_write_options.rs）：
+// 猜不得。`dir` / `name` / `part` 三个都可选，装在 STRUCT 里（见 types/op_write_file_options.rs）：
 //
 // ```sql
-// SELECT op_write(read_text('report.html'), 'html');
-// SELECT op_write(svg, 'svg', {'dir':'./out', 'part':'sales'});
+// SELECT op_write_file(read_text('report.html'), 'html');
+// SELECT op_write_file(svg, 'svg', {'dir':'./out', 'part':'sales'});
 // ```
 //
 // 与 `op_open_path` 的配合是这个函数存在的另一半理由：它只负责把内容变成路径，剩下那段交给别的函数 ——
 //
 // ```sql
-// SELECT op_open_path(op_write(html, 'html'));
-// SELECT op_open_path(op_write(html, 'html'), 'firefox');   -- 换程序也照样组合
+// SELECT op_open_path(op_write_file(html, 'html'));
+// SELECT op_open_path(op_write_file(html, 'html'), 'firefox');   -- 换程序也照样组合
 // ```
 //
 // 要「写完直接打开」用 `op_open_content`；要「HTML 直接进浏览器」用 `op_open_html`。
@@ -34,14 +34,14 @@
 //
 // Every other function in this extension starts from a path, while SQL exploration usually has content
 // in hand: a rendered HTML or SVG, a CSV, the PNG bytes of a BLOB. A launcher does not read content, so
-// the missing step needs a name of its own — `op_write`.
+// the missing step needs a name of its own — `op_write_file`.
 //
-//   op_write(content, ext)                 op_write(content, ext, opts)
-//   op_write(blob,  ext)                   op_write(blob,  ext, opts)
+//   op_write_file(content, ext)                 op_write_file(content, ext, opts)
+//   op_write_file(blob,  ext)                   op_write_file(blob,  ext, opts)
 //
 // The second argument (the extension) is **required**: it decides how the system treats the file
 // (`.html` to a browser, `.png` to an image viewer) and is not something to guess. `dir`, `name` and
-// `part` are all optional and ride in a STRUCT (see types/op_write_options.rs).
+// `part` are all optional and ride in a STRUCT (see types/op_write_file_options.rs).
 //
 // Composing with `op_open_path` is the other half of why this function exists: it turns content into a
 // path and leaves the rest to another function — `op_open_content` for "open it right away", `op_open_html`
@@ -57,14 +57,14 @@
 
 use duckfn::{DuckBlob, DuckOptionResult, duck_error, duck_scalar_function};
 
-use crate::extension::types::op_write_options::OpWriteOptions;
+use crate::extension::types::op_write_file_options::OpWriteFileOptions;
 use crate::extension::writer;
 
-/// `op_write(content, ext)` / `op_write(content, ext, opts)`：把文本内容落盘，返回路径。
+/// `op_write_file(content, ext)` / `op_write_file(content, ext, opts)`：把文本内容落盘，返回路径。
 ///
 /// ```sql
-/// SELECT op_write('{"a":1}', 'json');
-/// SELECT op_write(svg, 'svg', {'dir':'./out', 'name':'chart'});
+/// SELECT op_write_file('{"a":1}', 'json');
+/// SELECT op_write_file(svg, 'svg', {'dir':'./out', 'name':'chart'});
 /// ```
 ///
 /// 后缀 `html` 与 `.html` 都认（都归成 `.html`），空后缀或带路径分隔符的后缀直接报错。目录缺省是系统
@@ -95,31 +95,31 @@ use crate::extension::writer;
                open-<time>-<part>-<random> name (an explicit name overwrites), and all three options \
                are sanitized as file names; the BLOB signatures write the bytes exactly as they are",
     examples = [
-        "SELECT op_write('{\"a\":1}', 'json')",
-        "SELECT op_write(svg, 'svg', {'dir':'./out', 'part':'sales'})"
+        "SELECT op_write_file('{\"a\":1}', 'json')",
+        "SELECT op_write_file(svg, 'svg', {'dir':'./out', 'part':'sales'})"
     ]
 )]
-pub(super) fn op_write(content: String, extension: String) -> DuckOptionResult<String> {
-    write_text(op_write::SQL_NAME, &content, &extension, None)
+pub(super) fn op_write_file(content: String, extension: String) -> DuckOptionResult<String> {
+    write_text(op_write_file::SQL_NAME, &content, &extension, None)
 }
 
-/// `op_write(content, ext, opts)`：同一名字下带选项的签名。
+/// `op_write_file(content, ext, opts)`：同一名字下带选项的签名。
 ///
 /// The signature of the same name that carries the options.
-#[duck_scalar_function(overloads_name = "op_write")]
-pub(super) fn op_write_with(
+#[duck_scalar_function(overloads_name = "op_write_file")]
+pub(super) fn op_write_file_with(
     content: String,
     extension: String,
-    options: OpWriteOptions,
+    options: OpWriteFileOptions,
 ) -> DuckOptionResult<String> {
-    write_text(op_write_with::SQL_NAME, &content, &extension, Some(&options))
+    write_text(op_write_file_with::SQL_NAME, &content, &extension, Some(&options))
 }
 
-/// `op_write(blob, ext)` / `op_write(blob, ext, opts)`：二进制内容（图片这类）的同一件事。
+/// `op_write_file(blob, ext)` / `op_write_file(blob, ext, opts)`：二进制内容（图片这类）的同一件事。
 ///
 /// ```sql
 /// -- read_blob 进来的 PNG 字节，落回文件再交给系统看图程序
-/// SELECT op_write(read_blob('logo.png'), 'png');
+/// SELECT op_write_file(read_blob('logo.png'), 'png');
 /// ```
 ///
 /// 与文本那条的差别只有一处：字节原样写出去，不经 UTF-8。后缀在这里更加要紧 —— 图片没有后缀，
@@ -136,29 +136,29 @@ pub(super) fn op_write_with(
 /// which one reaches the community-extension docs page, so exactly one carries it and the rest add
 /// examples (those concatenate and de-duplicate).
 #[duck_scalar_function(
-    overloads_name = "op_write",
-    example = "SELECT op_write(read_blob('logo.png'), 'png')"
+    overloads_name = "op_write_file",
+    example = "SELECT op_write_file(read_blob('logo.png'), 'png')"
 )]
-pub(super) fn op_write_blob(content: DuckBlob, extension: String) -> DuckOptionResult<String> {
+pub(super) fn op_write_file_blob(content: DuckBlob, extension: String) -> DuckOptionResult<String> {
     write_bytes(
-        op_write::SQL_NAME,
+        op_write_file::SQL_NAME,
         &content.value,
         &extension,
         None,
     )
 }
 
-/// `op_write(blob, ext, opts)`：二进制内容带选项的签名。
+/// `op_write_file(blob, ext, opts)`：二进制内容带选项的签名。
 ///
 /// The signature of the same name that carries the options for binary content.
-#[duck_scalar_function(overloads_name = "op_write")]
-pub(super) fn op_write_blob_with(
+#[duck_scalar_function(overloads_name = "op_write_file")]
+pub(super) fn op_write_file_blob_with(
     content: DuckBlob,
     extension: String,
-    options: OpWriteOptions,
+    options: OpWriteFileOptions,
 ) -> DuckOptionResult<String> {
     write_bytes(
-        op_write::SQL_NAME,
+        op_write_file::SQL_NAME,
         &content.value,
         &extension,
         Some(&options),
@@ -172,7 +172,7 @@ fn write_text(
     sql_name: &str,
     content: &str,
     extension: &str,
-    options: Option<&OpWriteOptions>,
+    options: Option<&OpWriteFileOptions>,
 ) -> DuckOptionResult<String> {
     write_bytes(sql_name, content.as_bytes(), extension, options)
 }
@@ -186,7 +186,7 @@ fn write_bytes(
     sql_name: &str,
     content: &[u8],
     extension: &str,
-    options: Option<&OpWriteOptions>,
+    options: Option<&OpWriteFileOptions>,
 ) -> DuckOptionResult<String> {
     let path = writer::write(content, extension, options)
         .map_err(|err| duck_error(format!("{sql_name}: {err}")))?;

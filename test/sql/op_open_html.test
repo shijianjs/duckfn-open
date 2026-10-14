@@ -4,7 +4,7 @@
 
 # 与 op_open_content.test 同一条理由：**任何真调用都会把默认浏览器叫起来**，那取决于这台机器的桌面配置，
 # CI 的 runner 也没有桌面。所以这里只认 catalog 与那些到不了落盘的调用。
-# 它写出的路径长什么样、临时目录怎么缺省，是 writer::write 的事（op_write.test 已经盯住了），
+# 它写出的路径长什么样、临时目录怎么缺省，是 writer::write 的事（op_write_file.test 已经盯住了），
 # 这个函数只是把后缀钉成 `html`、把三个可选项全部留空。
 
 require duckfn_open

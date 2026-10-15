@@ -1,6 +1,6 @@
 ---
 title: Opening a path
-sidebar_position: 1
+sidebar_position: 2
 description: op_open_path, op_open_path_detached and op_open_commands — handing a path or a URL to the desktop.
 ---
 

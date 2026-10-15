@@ -27,7 +27,7 @@ flowchart LR
 两个文件是例外：`op_print` 要做的整件事就是往 stdout 写，所以那段写就在它自己的文件里；
 `scalar_op_sanitize_filename.rs` 则两层都不调 —— 它把 `sanitize-filename` 这个库自己的对外面原样接到 SQL 上，
 用的是库自己的缺省，而不是落盘那一族的策略（写盘那条路径仍然走 `writer.rs`，它内部用的是同一个库、另一套
-策略）。下面每一行对调用方意味着什么（SQL 侧的语义），在用户指南的[函数](../user-guide/functions/index.md)那一节。
+策略）。下面每一行对调用方意味着什么（SQL 侧的语义），在用户指南的[函数总览](../user-guide/functions/overview.md)那一节。
 
 | SQL 名字 | 签名 | Rust 函数 | 文件 | 行为 |
 | --- | --- | --- | --- | --- |

@@ -1,6 +1,6 @@
 ---
 title: Printing to stdout
-sidebar_position: 3
+sidebar_position: 4
 description: op_print — text written straight to stdout, past the result set's formatting, and handed back.
 ---
 

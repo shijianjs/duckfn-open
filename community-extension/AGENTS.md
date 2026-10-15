@@ -41,10 +41,13 @@ sqllogictest 跑过是 8/8 全绿，仓库自己的 2.0 腿也是绿的），属
 所以正式提交时 `ref` 与 `ref_next` 填**同一个发布提交**就行（上游的 `duck_geoarrow`、`duck_hunt`
 就是这么写的）。
 
-本仓还没提交注册，所以现在只是先在这里摆上：`ref_next` 填当前 main 的主提交（`60a9c84`，它的 2.0 腿
-跑绿），`ref` 仍是发布时才填的占位符。改动它的时机：先在本仓
-`.github/workflows/MainDistributionPipeline.yml` 的 `duckdb-next-build` 腿下改到绿，再把 `ref_next`
-换成那次运行的提交 SHA。
+本仓还没提交注册，所以现在只是先在这里摆上：`ref_next` 填当前 main 的主提交（`7a666e6`，它的两条腿都
+跑绿了），`ref` 仍是发布时才填的占位符。注意它**不跟着 main 走** —— 它钉的是「跑绿那一次运行所用的提交」，
+后面再有提交也不会自动跟上；要改就按下面的时机来。
+
+改动它的时机：先在本仓 `.github/workflows/MainDistributionPipeline.yml` 的 `duckdb-next-build` 腿下改到
+绿，再把 `ref_next` 换成那次运行的提交 SHA（跑一次 `gh workflow run "Main Extension Distribution
+Pipeline" --ref main`，绿了就把 `git rev-parse HEAD` 那个值填上）。
 
 ## 字段为什么这么写（都不是猜的）
 

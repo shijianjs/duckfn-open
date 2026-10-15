@@ -1,6 +1,6 @@
 ---
 title: 打开路径与 URL
-sidebar_position: 1
+sidebar_position: 2
 description: op_open_path、op_open_path_detached 与 op_open_commands —— 把一个路径或 URL 交给桌面。
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: 打印到 stdout
-sidebar_position: 3
+sidebar_position: 4
 description: op_print —— 把文本直接写到 stdout，绕开结果集的排版，并把那段文本还回去。
 ---
 

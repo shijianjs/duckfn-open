@@ -34,6 +34,16 @@ locale 的输出（英文 `/<repo>/data/x.tsv`、中文 `/<repo>/zh-Hans/data/x.
 按同样的相对路径改另一边**：`id` / `slug` / `sidebar_position` 保持一致，页内链接用相对
 文件路径，代码块里的 SQL 是代码、照抄，只翻注释。
 
+**侧边栏分类的标签不在 i18n 内容目录里翻**：Docusaurus 只从英文那份目录树读 `_category_.json`（自动生成的
+分类也一样），所以中文分类名要改 `i18n/zh-Hans/docusaurus-plugin-content-docs/current.json` 里的
+`sidebar.<侧边栏>.category.<英文 label>` 条目 —— 那一条由 `npx docusaurus write-translations --locale zh-Hans`
+抽出来（加了新分类就重跑一次，再把它翻掉）。在 i18n 内容目录下再放一份 `_category_.json` 是无效的。
+
+`_category_.json` 只写三样：`label`、`position`、以及决定「点分类标题打开哪一页」的 `link`。`user-guide/functions`
+这一份的 `link` 指向 `user-guide/functions/overview`（被 `link` 指向的文档会从子项里去掉，所以子项列的是那四页
+函数说明）；不写 `link` 的分类是纯折叠项，标题点不开 —— 那是「目录里没有 index 文档」时的默认行为，不是哪一
+项配置写错了。
+
 **标题里不要写 `{#自定义-id}`**：这份站点没有给 `.md` 启用 heading id 语法，MDX 会把 `{…}` 当成表达式
 解析，`just docs_build` 直接失败（散文标题后面还跟行内代码时尤其容易撞上）。页内互链因此只有一种可靠的
 写法 —— 链到**代码名标题**（`## op_open_path`、`## op_write_file_options` 这类），它的 slug 在中英两侧完全一样。

@@ -1,11 +1,11 @@
 ---
-title: 函数
-sidebar_position: 3
-slug: /user-guide/functions
+title: 总览
+sidebar_position: 1
+slug: /user-guide/functions/overview
 description: duckfn_open 注册的每一个 SQL 函数，以及可以在你自己的 DuckDB 里跑的例子。
 ---
 
-# 函数
+# 总览
 
 加载扩展会注册九个函数名、二十一个签名，而且它们全都是标量函数：没有聚合函数、没有表函数。它们和
 DuckDB 自带的一样用，可以放进投影或 `WHERE` 条件，也能和内置函数随意组合。

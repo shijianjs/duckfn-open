@@ -69,7 +69,7 @@ Nothing on this site runs for you: every example is plain SQL for a DuckDB that 
 The query below only reads the catalog, so it is the safest one to try first. `op_write_file`, `op_print`
 and the two filename functions need no desktop either; launching does. On a machine without one — a server,
 a CI runner — the four `op_open_path` actions answer `false`, while `op_open_content` and `op_open_html`
-raise an error carrying the path they did write. [Functions](./functions/index.md) explains each answer.
+raise an error carrying the path they did write. [Functions](./functions/overview.md) explains each answer.
 
 ```sql
 SELECT function_name, len(parameters), return_type
@@ -99,7 +99,7 @@ writes to stdout, and the two filename functions never leave the string they wer
 ## Where to go next
 
 - [Installation](./installation.md) — the community repository, a release file, or a local build.
-- [Functions](./functions/index.md) — every signature, the options STRUCT, what each answer means, and what
+- [Functions](./functions/overview.md) — every signature, the options STRUCT, what each answer means, and what
   to do when nothing opens.
 - [Development guide](../development/quick-start.md) — building the extension from source. That part is for
   people working on this repository; it is not needed to use the extension.

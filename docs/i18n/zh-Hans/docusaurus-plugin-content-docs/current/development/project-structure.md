@@ -295,7 +295,7 @@ feature 管的是 `DuckDate` / `DuckTimestamp` 与 chrono 类型互转，而本�
 
 设计说明就在这份指南里：上面的模块结构、[写函数](./writing-functions.md)、[测试](./testing.md) 与
 [构建与发布](./build-and-release.md)。同一套 API 在 SQL 那一侧的样子（每个名字答复什么、能跑的示例）在
-用户指南的[函数](../user-guide/functions/index.md)。`AGENTS.md` 里是仓库的约定、发版流程，以及一份
+用户指南的[函数总览](../user-guide/functions/overview.md)。`AGENTS.md` 里是仓库的约定、发版流程，以及一份
 「duckfn 自己的文档按主题在哪儿」的对照表 —— 属性宏能做的所有事都在那边，不在本仓库里。
 
 duckfn 0.0.11 起，那份指南连同**可运行的示例扩展**与它的 SQLLogicTest 用例都随 crate 一起发布，

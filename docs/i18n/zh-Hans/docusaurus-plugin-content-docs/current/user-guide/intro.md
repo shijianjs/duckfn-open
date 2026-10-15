@@ -62,7 +62,7 @@ SELECT op_sanitize_filename('quarterly/report:v2.csv'); -- 'quarterlyreportv2.cs
 不做任何动作，所以它最适合先试。`op_write_file`、`op_print` 和文件名那两个函数也不需要桌面；启动那件事
 才需要：在没有桌面的机器上（服务器、CI runner）四个 `op_open_path` 动作一律答复 `false`，而
 `op_open_content` 和 `op_open_html` 会报错，报文里带着它们确实已经写出去的那个路径。每个答复意味着什么，
-都写在[函数](./functions/index.md)那一页里。
+都写在[函数](./functions/overview.md)那一页里。
 
 ```sql
 SELECT function_name, len(parameters), return_type
@@ -90,7 +90,7 @@ ORDER BY 1, 2;    -- 九个名字，二十一个签名
 ## 接下来去哪
 
 - [安装](./installation.md) —— 社区仓、Release 文件，或者本地自己构建的产物。
-- [函数](./functions/index.md) —— 每个签名、那个选项 STRUCT、每个返回值是什么意思，以及什么都没打开时该
+- [函数](./functions/overview.md) —— 每个签名、那个选项 STRUCT、每个返回值是什么意思，以及什么都没打开时该
   查什么。
 - [开发指南](../development/quick-start.md) —— 从源码构建这个扩展。那是给改这个仓库的人看的；用扩展
   本身不需要它。

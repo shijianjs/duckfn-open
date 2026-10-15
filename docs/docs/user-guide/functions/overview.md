@@ -1,11 +1,11 @@
 ---
-title: Functions
-sidebar_position: 3
-slug: /user-guide/functions
+title: Overview
+sidebar_position: 1
+slug: /user-guide/functions/overview
 description: Every SQL function duckfn_open registers, with examples to run in your own DuckDB.
 ---
 
-# Functions
+# Overview
 
 Loading the extension registers nine function names and twenty-one signatures, and every one of them is a
 scalar function: no aggregate, no table function. They behave like DuckDB's own, so they go in a projection

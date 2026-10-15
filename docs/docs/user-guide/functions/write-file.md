@@ -1,6 +1,6 @@
 ---
 title: Writing content out
-sidebar_position: 2
+sidebar_position: 3
 description: op_write_file, op_open_content and op_open_html — turning content into a file, and maybe opening it.
 ---
 

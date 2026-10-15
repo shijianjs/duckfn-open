@@ -2,5 +2,9 @@
   "version.label": {
     "message": "下一版",
     "description": "The label for version current"
+  },
+  "sidebar.userGuide.category.Functions": {
+    "message": "函数",
+    "description": "The label for category 'Functions' in sidebar 'userGuide'"
   }
 }

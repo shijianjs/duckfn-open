@@ -412,7 +412,7 @@ function CodeShowcase(): ReactNode {
           </div>
         </div>
         <p className={styles.showcaseLinkRow}>
-          <Link className={styles.showcaseLink} to="/docs/user-guide/functions">
+          <Link className={styles.showcaseLink} to="/docs/user-guide/functions/overview">
             <Translate
               id="homepage.showcase.link"
               description="Home page link to the function reference">
@@ -447,7 +447,7 @@ export default function Home(): ReactNode {
   const nextHrefs = [
     useBaseUrl('/docs/intro'),
     useBaseUrl('/docs/user-guide/installation'),
-    useBaseUrl('/docs/user-guide/functions'),
+    useBaseUrl('/docs/user-guide/functions/overview'),
     useBaseUrl('/docs/development/quick-start'),
   ] as const;
 

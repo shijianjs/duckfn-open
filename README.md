@@ -107,7 +107,7 @@ argument behaves exactly like a column one, and nothing runs while a query is be
 
 The rules behind those answers — the options STRUCT, how a generated name is put together, what the filename
 crate counts as illegal, and the one default that is pinned instead of following the crate — are in the
-[function reference](https://shijianjs.github.io/duckfn-open/docs/user-guide/functions).
+[function reference](https://shijianjs.github.io/duckfn-open/docs/user-guide/functions/overview).
 
 ## Documentation
 

@@ -31,7 +31,7 @@ and `scalar_op_sanitize_filename.rs` calls neither layer at all — it wires the
 surface straight to SQL, with the crate's defaults instead of the write family's policy (the write path still
 goes through `writer.rs`, which uses the same crate under a different one). The
 SQL-side semantics of every row below — what each value means to a caller — is the
-[user guide's function reference](../user-guide/functions/index.md).
+[user guide's function overview](../user-guide/functions/overview.md).
 
 | SQL name | Signature | Rust function | File | Behaviour |
 | --- | --- | --- | --- | --- |

@@ -1,6 +1,6 @@
 ---
 title: File names from data
-sidebar_position: 4
+sidebar_position: 5
 description: op_sanitize_filename and op_sanitize_filename_check — turning a value into a usable file name.
 ---
 

@@ -149,9 +149,13 @@ A translated page is a full copy of its English source, placed under
 
 - Translate the body and the reader-facing front matter (`title`, `description`).
 - Keep `id`, `slug` and `sidebar_position` identical so both languages share routes and order.
-- Link to other pages with **relative file paths** (`./testing.md`, `../user-guide/functions/index.md`).
+- Link to other pages with **relative file paths** (`./testing.md`, `../user-guide/functions/overview.md`).
   A hard-coded `/docs/...` link would send a Chinese page to the English one.
 - Code blocks are code: copy the SQL verbatim and translate only its comments.
+- A sidebar **category label** does not come from a `_category_.json` under the i18n content directory —
+  Docusaurus reads that metadata from the English tree only — but from the extracted entry in
+  `i18n/zh-Hans/docusaurus-plugin-content-docs/current.json` (`sidebar.<sidebar>.category.<label>`), which is
+  what `write-translations` appends below.
 
 UI strings live in `i18n/zh-Hans/*.json`. After changing text in `docusaurus.config.ts`, in `src/`, or
 a `_category_.json`, regenerate the stubs and fill in the new entries:

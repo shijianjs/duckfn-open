@@ -2,7 +2,7 @@
 name = "duckfn_open"
 version = "0.1.1-dev.0"
 edition = "2024"
-rust-version = "1.86"
+rust-version = "1.88"
 # 这是 DuckDB 的 loadable extension（靠 GitHub Release 上的 .duckdb_extension 分发，
 # 见根目录 AGENTS.md 的「发版流程」），不发 crates.io。
 #
@@ -61,7 +61,7 @@ strip = true
 # SQLLogicTest files: after any build they sit in cargo's unpacked source directory
 # (`<cargo>/registry/src/*/duckfn-<version>/`), matching the version pinned here — no duckfn repository
 # clone needed. AGENTS.md has the paths and a topic-by-topic map.
-duckfn = { version = "0.1.0", features = ["cli"] }
+duckfn = { version = "0.2.0", features = ["cli"] }
 
 # duckfn 本身就建立在下面两个 crate 之上；需要直接使用它们的类型或 builder 时显式加上。
 # quack-rs：duckfn_entrypoint! 展开出的代码直接引用 `quack_rs::` 路径，必须显式依赖。
@@ -96,13 +96,13 @@ libduckdb-sys = { version = ">=1.10500, <2", features = ["loadable-extension"] }
 
 # 用到时间/日期（`DuckDate`、`DuckTimestamp*`…）或 UUID、DECIMAL 的互转时，打开 duckfn 的对应 feature
 # （"chrono" / "uuid" / "rust_decimal"）并把那个 crate 加成直接依赖 —— duckfn 不 re-export 它们。例：
-#   duckfn = { version = "0.1.0", features = ["cli", "chrono"] }
+#   duckfn = { version = "0.2.0", features = ["cli", "chrono"] }
 #   chrono = { version = "0.4", default-features = false, features = ["std"] }
 #
 # When you convert to those types, turn on duckfn's matching feature ("chrono" / "uuid" /
 # "rust_decimal") and add the crate itself as a direct dependency — duckfn re-exports none of them.
 # For example:
-#   duckfn = { version = "0.1.0", features = ["cli", "chrono"] }
+#   duckfn = { version = "0.2.0", features = ["cli", "chrono"] }
 #   chrono = { version = "0.4", default-features = false, features = ["std"] }
 
 # 这个扩展的全部能力都来自下面这一个 crate：它把「用桌面配置好的程序打开一个路径或 URL」这件事

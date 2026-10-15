@@ -1,6 +1,6 @@
 extension:
   name: duckfn_open
-  description: Open a path, a URL, or the output of a query with the program your desktop is configured to use
+  description: Wrap Rust's open and sanitize-filename crates for SQL — open a path, a URL or the output of a query with your desktop's own program, and turn a string into a usable file name
   version: 0.1.0
   language: Rust
   build: cargo
@@ -28,10 +28,14 @@ docs:
     -- NULL input starts nothing, so SQL can tell "no input" from "could not open"
     SELECT op_open_path(NULL);
   extended_description: |
-    `duckfn_open` wraps the Rust `open` crate for SQL: it hands a thing to whatever the current desktop
-    configuration opens that kind of thing with — the system default program, or one you name. The value
-    goes to the platform launcher (ShellExecute on Windows, `/usr/bin/open` on macOS, `xdg-open` and its
-    fallbacks on Unix); DuckDB reads, copies, or interprets nothing itself.
+    `duckfn_open` wraps two mature Rust crates for SQL: `open`, which hands a thing to whatever the current
+    desktop configuration opens that kind of thing with — the system default program, or one you name — and
+    `sanitize-filename`, which settles whether a string can be a file name. Wrapping is all it does: the value
+    goes to the platform launcher open already knows (ShellExecute on Windows, `/usr/bin/open` on macOS,
+    `xdg-open` and its fallbacks on Unix), the file-name rules are the crate's own, and DuckDB reads, copies or
+    interprets nothing itself. The only further crates in the picture, `tempfile` and `chrono`, sit inside the
+    writer that generates a name for `op_write_file` — one internal policy of that one function, not their API
+    put on SQL.
 
     It is aimed at interactive work: a person is at the machine, running DuckDB, and wants the result where
     they can look at it. A launcher is desktop software, so DuckDB embedded in an application is outside what

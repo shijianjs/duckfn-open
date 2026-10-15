@@ -7,10 +7,14 @@ description: What duckfn_open adds to DuckDB, and how to start using it.
 
 # Introduction
 
-`duckfn_open` is a [DuckDB loadable extension](https://duckdb.org/docs/stable/extensions/overview): it adds
-SQL functions, and once it is loaded they behave like DuckDB's own. Nothing to compile and nothing to import
-at the call site — the CLI, a Python or R session and the other front ends all take the same
-`.duckdb_extension` file.
+`duckfn_open` is a [DuckDB loadable extension](https://duckdb.org/docs/stable/extensions/overview) that wraps
+two mature Rust crates for SQL: [`open`](https://crates.io/crates/open), which hands a path or URL to the
+program the desktop is configured to open it with, and
+[`sanitize-filename`](https://crates.io/crates/sanitize-filename), which settles whether a string can be a file
+name. Neither is reimplemented — the per-platform launchers and their argument quoting, and the rules for what
+a legal file name is, are the crates' own. What it adds is ordinary SQL functions: once it is loaded they
+behave like DuckDB's own, so nothing has to be compiled and nothing imported at the call site — the CLI, a
+Python or R session and the other front ends all take the same `.duckdb_extension` file.
 
 What it adds is one sentence of SQL for what your desktop already does: a path or a URL goes to the program
 configured to open it, so a query can put a report in front of a human. Most of what a query produces has no

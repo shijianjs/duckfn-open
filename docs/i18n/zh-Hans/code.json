@@ -365,12 +365,12 @@
     "message": "报表标题、客户名当不了文件名。op_sanitize_filename 把它改写成各平台都认的名字，op_sanitize_filename_check 只回答它本来是不是这样一个名字 —— 于是查询能数出哪些会被改动，而在这层一条都不动。",
     "description": "Home page feature card description"
   },
-  "homepage.features.install.title": {
-    "message": "一行装好",
+  "homepage.features.crates.title": {
+    "message": "包装的是两个成熟库",
     "description": "Home page feature card title"
   },
-  "homepage.features.install.details": {
-    "message": "INSTALL duckfn_open FROM community; 再 LOAD duckfn_open; —— 构建签过名、且与你的 DuckDB 版本和平台匹配，所以不用加 -unsigned。",
+  "homepage.features.crates.details": {
+    "message": "启动那件事是 open 这个库的，文件名的规则是 sanitize-filename 的。这里是把它们接到 SQL 上，而不是各重写一遍，所以一次调用的行为和库本身一致。",
     "description": "Home page feature card description"
   },
   "homepage.features.platforms.title": {

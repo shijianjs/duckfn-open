@@ -7,9 +7,12 @@ description: duckfn_open 给 DuckDB 加了什么，以及怎么开始用。
 
 # 简介
 
-`duckfn_open` 是一个 [DuckDB 可加载扩展](https://duckdb.org/docs/stable/extensions/overview)：它给 DuckDB
-加了一批 SQL 函数，加载之后它们和 DuckDB 自带的函数没有区别。不用编译什么，调用处也不用 import ——
-CLI、Python / R 会话与其他 DuckDB 前端接受的都同一份 `.duckdb_extension` 文件。
+`duckfn_open` 是一个 [DuckDB 可加载扩展](https://duckdb.org/docs/stable/extensions/overview)，它把两个成熟的
+Rust 库接到 SQL 上：[`open`](https://crates.io/crates/open) 把一个路径或 URL 交给桌面配置好的那个程序去打开，
+[`sanitize-filename`](https://crates.io/crates/sanitize-filename) 则在一个字符串上了结「它能不能当文件名」。
+两者都不是重写的 —— 各平台的启动方式与参数引用、文件名合法性的那套规则都是库自己的。它加的是普通的 SQL
+函数：加载之后它们和 DuckDB 自带的函数没有区别，所以不用编译什么，调用处也不用 import —— CLI、Python / R
+会话与其他 DuckDB 前端接受的都同一份 `.duckdb_extension` 文件。
 
 它加的东西一句话就能说完：把一个路径或 URL 交给桌面当前配置好的程序去打开，让一条查询能把报表送到人
 眼前。可查询产出的东西大多还没有路径 —— 它是一段内容 —— 所以这套 API 的另一半先把内容写成一个文件，

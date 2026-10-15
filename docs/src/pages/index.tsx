@@ -258,15 +258,15 @@ function featuresContent(): FeaturesContent {
       {
         icon: 'lucide:package',
         title: translate({
-          id: 'homepage.features.install.title',
+          id: 'homepage.features.crates.title',
           description: 'Home page feature card title',
-          message: 'Install in one line',
+          message: 'Two crates, wrapped',
         }),
         details: translate({
-          id: 'homepage.features.install.details',
+          id: 'homepage.features.crates.details',
           description: 'Home page feature card description',
           message:
-            'INSTALL duckfn_open FROM community; then LOAD duckfn_open; \u2014 signed builds matched to your DuckDB version and platform, so no -unsigned flag is needed.',
+            'The launching is the open crate\u2019s job and the file-name rules are sanitize-filename\u2019s. This extension wires both to SQL rather than reimplementing them, so a call behaves the way the crate does.',
         }),
       },
       {

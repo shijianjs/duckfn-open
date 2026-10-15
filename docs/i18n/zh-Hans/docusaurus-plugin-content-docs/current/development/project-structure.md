@@ -6,6 +6,16 @@ description: 从 crate root 到注册函数的模块链，以及让它保持可�
 
 # 目录结构
 
+## 用 duckfn 写
+
+这个扩展注册的每个函数都是一个普通的 Rust 函数，头上带一个 [duckfn](https://crates.io/crates/duckfn) 属性宏；
+注册与参数读取都由宏生成。构建过程里没有 C++ 这一环，C API 只用头文件、走 DuckDB 的 API 函数表
+（`libduckdb-sys` 的 `loadable-extension`），本地因此不需要构建一份 DuckDB —— 见[构建与发布](./build-and-release.md)。
+
+本仓库来自 [duckfn-extension-template](https://github.com/shijianjs/duckfn-extension-template)，它带来整套可运行的
+工作循环 —— 构建、SQLLogicTest、文档导出、发版。同样写法的另一个扩展是
+[duckfn_quantstats](https://github.com/shijianjs/duckfn-quantstats)。下面是本仓库把它做成了什么样子：
+
 ```text
 src/lib.rs             crate root  ->  mod extension;
 src/extension/mod.rs   ->  duckfn_entrypoint!("duckfn_open");

@@ -6,6 +6,19 @@ description: The module chain from the crate root to the registered functions, a
 
 # Project structure
 
+## Written with duckfn
+
+Every function this extension registers is an ordinary Rust function carrying a [duckfn](https://crates.io/crates/duckfn)
+attribute macro; the macro writes the registration and the argument reading. No C++ takes part in the build, and
+the C API is used headers-only, through DuckDB's API function table (`libduckdb-sys` with `loadable-extension`),
+which is what keeps a local DuckDB build out of the loop — see [build and
+release](./build-and-release.md).
+
+The repository started from [duckfn-extension-template](https://github.com/shijianjs/duckfn-extension-template),
+which carries the working loop — build, SQLLogicTest, docs export, release. Another extension written the same
+way is [duckfn_quantstats](https://github.com/shijianjs/duckfn-quantstats). What follows is what this
+repository made of that template:
+
 ```text
 src/lib.rs             crate root  ->  mod extension;
 src/extension/mod.rs   ->  duckfn_entrypoint!("duckfn_open");

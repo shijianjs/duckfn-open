@@ -1,0 +1,25 @@
+# 固定构建用的 Rust 工具链（下游依赖 duckfn 不继承本文件，它只作用于本仓库自己的构建）。
+#
+# 为什么钉：`duckfn 0.2.0` 要求 rustc **1.88**（它的过程宏 crate 依赖 syn 3，后者带 darling 0.24）。
+# 本仓库的 CI 不构建 wasm（MainDistributionPipeline 里 `exclude_archs` 排掉了三个 wasm 平台），
+# 所以 1.86 那个坑只影响官方 CI 的 wasm 作业 —— 但钉住工具有两个别的好处：
+#   1. 本机构建与 CI 用同一个 rustc，不会出现「本地绿、CI 红」的版本差；
+#   2. 哪天要恢复 wasm（`[[example]]` + launcher 替身 + CI 矩阵那一串，见 AGENTS.md），
+#      官方 ci-tools 的 v1.5-variegata 会把 wasm 作业的 Rust 钉在 1.86，那时这个文件就是必需的。
+#
+# 选 1.97.1 而不是 1.88：只有较新的 stable 才给 `wasm32-unknown-emscripten` 的预编译 std 带上展开
+# 运行时，`catch_unwind` 在浏览器里才能把 panic 转成可读错误。dtolnay/rust-toolchain 只把它的工具链
+# 设成 rustup **default**，而本文件优先级高于 default，于是 cargo 用下面钉的版本编译。
+#
+# 恢复 wasm 时记得把 `targets` 里的 wasm 目标加回来，并给 Makefile 补 `link_wasm_*` 的 `-O0` 覆盖
+# （Rust ≥1.89 的 wasm 产物可能需要 call-indirect-overlong，CI 钉死的 emsdk 3.1.71 优化不了它）。
+# 完整故事见 duckfn 仓库的 docs/docs/duckdb-versions/wasm-toolchain.md。
+#
+# Pins the Rust used to build this repository (a downstream dependency on duckfn does not inherit it).
+# duckfn 0.2.0 needs rustc 1.88 (syn 3 pulls in darling 0.24). This repository's CI builds no wasm
+# (`exclude_archs` drops the three wasm platforms), so the 1.86 pin only bites the official CI's wasm
+# job — the pin here is for reproducibility and for the day wasm comes back. 1.97.1 rather than 1.88
+# because a recent stable ships the wasm std *with* unwinding. Re-add the wasm target and the
+# Makefile's -O0 override when wasm returns.
+[toolchain]
+channel = "1.97.1"

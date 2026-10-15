@@ -29,6 +29,23 @@ tag 名**。三者都是合法 git ref、社区仓都能照着 clone，但上游
 间漂移。写 `main` 的代价是实打实的：构建出来的二进制会自称 main 上的开发版本（`X.Y.Z-dev.N`），与这里
 声明的 `version` 对不上，而且同一个注册项在不同时间构建出的是不同代码。
 
+## `repo.ref_next`：下一个大版本那一腿
+
+社区注册表除了正式版那条腿，还跑一条**预发布**腿（他们的 `build_next.yml`：DuckDB 用
+`v2.0-cyanoptera` 分支、ci-tools 用 `main`、并带 `require_ref_next: true`）。这条腿只认描述文件里的
+`repo.ref_next`：没有这个字段就直接跳过，日志里打一句
+`Skipping prerelease validation: repo.ref_next is not defined` —— 也就是那条 PR 什么都没验证。
+
+本扩展对 2.0 **扩展代码与测试都不用改**（只用 C API 稳定区、也不构建 wasm；本机拿 2.0 引擎把整套
+sqllogictest 跑过是 8/8 全绿，仓库自己的 2.0 腿也是绿的），属上游 `UPDATING.md` 说的 state 1 ——
+所以正式提交时 `ref` 与 `ref_next` 填**同一个发布提交**就行（上游的 `duck_geoarrow`、`duck_hunt`
+就是这么写的）。
+
+本仓还没提交注册，所以现在只是先在这里摆上：`ref_next` 填当前 main 的主提交（`60a9c84`，它的 2.0 腿
+跑绿），`ref` 仍是发布时才填的占位符。改动它的时机：先在本仓
+`.github/workflows/MainDistributionPipeline.yml` 的 `duckdb-next-build` 腿下改到绿，再把 `ref_next`
+换成那次运行的提交 SHA。
+
 ## 字段为什么这么写（都不是猜的）
 
 - `language: Rust` / `build: cargo`：本仓 Makefile 就是官方 Rust 模板那一套（include

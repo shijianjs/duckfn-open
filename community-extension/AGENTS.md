@@ -10,11 +10,18 @@
 
 目录名必须与 `extension.name` **逐字一致** —— 社区仓的 `scripts/build.py` 会校验，不一致直接报错。
 
-## 模板里这三样都是占位符，提交前逐个换掉
+## 提交进度与还要改什么
 
-1. `description.yml` 的 `<...>`：`extension.description`、`maintainers`、`repo.github`、`repo.ref`；
-2. `docs.hello_world` 与 `docs.extended_description`：示例函数的说明换成你真正的函数；
-3. 本文件下面提到的路径与用户名。
+`description.yml` 的 `extension.description` / `maintainers` / `repo.github` 与 `docs.hello_world` /
+`docs.extended_description` 都已按本扩展的真实 API（九个 `op_*` 名字）写好，改 API 时跟着改 —— 改了
+`hello_world` / `extended_description`，或改了函数属性上的 `description` / `example`，都要重生成
+`docs/function_descriptions.csv`（见下面「那份 CSV 是必须的」），并**真跑一遍** `hello_world`：它渲染进社区
+文档页的代码块，写歪了不会有人报错（跑的时候别真去 launch —— 会起进程那句用 `EXPLAIN` 代替）。
+
+**首次提交**：2026-10-15，[#3078](https://github.com/duckdb/community-extensions/pull/3078)。
+`extension.version` 与 `repo.ref` 都指向 **v0.1.0**（`6995c11bb78279aab4caf5b11f3d0df3011fb3a7`）；
+`repo.ref_next` 与 `ref` 同一个提交 —— 本扩展对 DuckDB 2.0 不需要改任何代码。之后每次发版回来改这两处
+（见下面「每次发版都要回来改」）。本文件下面提到的路径与用户名也照本机实际情况核对一遍。
 
 `extension.name` / `version` / `license` / `language` / `build` / `requires_toolchains` 在模板里已经是可直接
 沿用的值（下面一节解释为什么），只有 `name` 要跟着你改名后的扩展名走（`scripts/rename.sh` 会一起改）。
@@ -74,9 +81,10 @@ Pipeline" --ref main`，绿了就把 `git rev-parse HEAD` 那个值填上）。
   `repo.ref` 仍然要人工改。
 - `license: MIT`：对应仓库根目录的 `LICENSE`。注意 duckdb.org 的社区扩展文档页把字段名写成 `licence`，
   那是**文档的错**，真实 schema 是 `license`（以已收录扩展的 `description.yml` 为准）。
-- `docs.hello_world`：社区文档页会把它渲染进代码块，所以必须是**可直接复制跑**的真实例子 ——
-  现在这两段就是 README 快速上手的两个示例。页面上「Installing and Loading」那段由社区仓的
-  `layout/default.md` 自动加，`hello_world` 里不要再写 `INSTALL` / `LOAD`。
+- `docs.hello_world`：社区文档页会把它渲染进代码块，所以必须是**可直接复制跑**的真实例子 —— 现在这三条是
+  「预览会依次尝试的启动命令 / 把已有路径交给默认程序 / 把一段内容落盘并回路径」。页面上
+  「Installing and Loading」那段由社区仓的 `layout/default.md` 自动加，`hello_world` 里不要再写
+  `INSTALL` / `LOAD`。
 
 ## 那份 CSV 是必须的，而且会过期
 
@@ -89,7 +97,8 @@ just docs_csv
 cp target/function_descriptions.csv community-extension/docs/function_descriptions.csv
 ```
 
-模板初始的这份就是按示例函数生成的；换成你自己的函数之后重新生成一次即可。
+这一份已经是按本扩展的九个名字生成的（与 `target/function_descriptions.csv` 一致）；改了属性就重跑上面
+两条命令覆盖它。
 
 ## 提交：在 fork 的克隆里做，本仓只出那两张文件
 

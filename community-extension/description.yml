@@ -13,7 +13,7 @@ extension:
 repo:
   github: shijianjs/duckfn-open
   ref: 6995c11bb78279aab4caf5b11f3d0df3011fb3a7
-  ref_next: 7a666e6d25cd1dba75af7377c0a22104540f1a98
+  ref_next: 6995c11bb78279aab4caf5b11f3d0df3011fb3a7
 
 docs:
   hello_world: |

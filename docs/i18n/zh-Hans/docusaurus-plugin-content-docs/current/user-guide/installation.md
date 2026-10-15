@@ -31,23 +31,21 @@ DuckDB 会下载一份签过名、且与你本机 DuckDB 版本和平台匹配�
 
 ## 从 GitHub Release 安装
 
-每个版本都会发成一个 GitHub Release，里面每个平台各一份 `.duckdb_extension`。直接按 URL 加载你平台的
-那一份：
-
-```sql
-LOAD 'https://github.com/<owner>/<repo>/releases/latest/download/duckfn_open-windows_amd64.duckdb_extension';
-```
-
-Release 里的文件没有用 DuckDB 的发行密钥签名，所以 DuckDB 必须加 `-unsigned` 启动：
+每个版本都会发成一个 GitHub Release，里面按桌面平台各挂一份 `.duckdb_extension`，命名是
+`duckfn_open-<平台>.duckdb_extension`（`windows_amd64`、`linux_amd64`、`osx_arm64` 之类）。下载你平台的那
+一份，**并改名成 `duckfn_open.duckdb_extension`**：DuckDB 是拿文件名去找入口点符号的，直接用 Release 里的
+名字会报 `did not contain function "duckfn_open-windows_amd64_init_c_api"`；而 `LOAD` 本来也不去下载 URL，
+它收的是扩展名或本地路径：
 
 ```shell
-duckdb -unsigned
+curl -LO https://github.com/shijianjs/duckfn-open/releases/latest/download/duckfn_open-windows_amd64.duckdb_extension
+mv duckfn_open-windows_amd64.duckdb_extension duckfn_open.duckdb_extension
+duckdb -unsigned -c "LOAD './duckfn_open.duckdb_extension';"
 ```
 
-在 Release 页面上挑对应平台的资产 —— 命名规则是 `duckfn_open-<平台>.duckdb_extension`
-（`windows_amd64`、`linux_amd64`、`osx_arm64` 之类）。发布的只有桌面平台，也只有这些平台装载这个扩展
-有意义：Windows、Linux 与 macOS 各有一个可以把文件交出去的启动器，而 WebAssembly 构建一个都没有，所以
-也不存在那样的资产。
+Release 里的文件没有用 DuckDB 的发行密钥签名，所以要加 `-unsigned`。发布的只有桌面平台，也只有这些平台
+装载这个扩展有意义：Windows、Linux 与 macOS 各有一个可以把文件交出去的启动器，而 WebAssembly 构建一个
+都没有，所以也不存在那样的资产。
 
 ## 从本地构建的产物安装
 

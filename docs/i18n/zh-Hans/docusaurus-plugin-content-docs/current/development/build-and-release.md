@@ -104,8 +104,11 @@ PR 只构建 + 测试，不发布：发布那一步由「当前 ref 是版本 ta
 
 ### 安装一份发布产物
 
-```sql
-LOAD 'https://github.com/<owner>/<repo>/releases/latest/download/duckfn_open-windows_amd64.duckdb_extension';
+从 Release 页面下载对应平台的那一份，改名成 `duckfn_open.duckdb_extension`（入口点符号由文件名决定，而
+`LOAD` 不会去下载 URL），然后：
+
+```shell
+duckdb -unsigned -c "LOAD './duckfn_open.duckdb_extension';"
 ```
 
 本地构建的产物要 `duckdb -unsigned`；从 Release 下载的产物同样要加这个参数，因为它没有 DuckDB 分发密钥

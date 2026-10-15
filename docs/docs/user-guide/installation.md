@@ -34,23 +34,22 @@ local build instead.
 
 ## From a GitHub release
 
-Every version is published as a GitHub Release carrying one `.duckdb_extension` per desktop platform. Load
-the one matching your platform straight from its URL:
-
-```sql
-LOAD 'https://github.com/<owner>/<repo>/releases/latest/download/duckfn_open-windows_amd64.duckdb_extension';
-```
-
-A release file is not signed by DuckDB's distribution key, so DuckDB has to be started with `-unsigned`:
+Every version is published as a GitHub Release carrying one `.duckdb_extension` per desktop platform, named
+`duckfn_open-<platform>.duckdb_extension` (`windows_amd64`, `linux_amd64`, `osx_arm64`, and so on). Download
+the one for your platform and **rename it to `duckfn_open.duckdb_extension`**: DuckDB takes the entry-point
+symbol from the file name, so loading the release name fails with
+`did not contain function "duckfn_open-windows_amd64_init_c_api"` — and `LOAD` fetches no URLs anyway, it takes
+an extension name or a local path:
 
 ```shell
-duckdb -unsigned
+curl -LO https://github.com/shijianjs/duckfn-open/releases/latest/download/duckfn_open-windows_amd64.duckdb_extension
+mv duckfn_open-windows_amd64.duckdb_extension duckfn_open.duckdb_extension
+duckdb -unsigned -c "LOAD './duckfn_open.duckdb_extension';"
 ```
 
-Pick the asset for your platform from the release page — names follow
-`duckfn_open-<platform>.duckdb_extension` (`windows_amd64`, `linux_amd64`, `osx_arm64`, and so on). Only the
-desktop platforms are published, and only those can load this extension usefully: Windows, Linux and macOS
-each have a launcher to hand a file to, and a WebAssembly build would have none, so there is no such asset.
+A release file is not signed by DuckDB's distribution key, hence `-unsigned`. Only the desktop platforms are
+published, and only those can load this extension usefully: Windows, Linux and macOS each have a launcher to
+hand a file to, and a WebAssembly build would have none, so there is no such asset.
 
 ## From a local build
 

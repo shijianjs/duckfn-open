@@ -111,8 +111,11 @@ Pull requests run the build and the tests only; publishing is gated on the ref b
 
 ### Installing a release
 
-```sql
-LOAD 'https://github.com/<owner>/<repo>/releases/latest/download/duckfn_open-windows_amd64.duckdb_extension';
+Download the asset for your platform from the release page, rename it to `duckfn_open.duckdb_extension`
+(DuckDB takes the entry-point symbol from the file name, and `LOAD` fetches no URLs), then:
+
+```shell
+duckdb -unsigned -c "LOAD './duckfn_open.duckdb_extension';"
 ```
 
 A locally built extension needs `duckdb -unsigned`; a released one that a user downloads also has to be

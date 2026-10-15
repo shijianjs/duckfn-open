@@ -95,7 +95,7 @@ SELECT op_open_commands('report.html');
 规划一条查询时也不会执行到它们（`EXPLAIN SELECT op_write_file('a', 'txt')` 一个文件都不写）。
 
 这些答复背后的规则 —— 那个选项 STRUCT、自动名字是怎么拼的、文件名这个库把什么算作非法，以及唯一一处
-不跟库走而钉住的缺省 —— 都在[函数参考](https://shijianjs.github.io/duckfn-open/docs/user-guide/functions/overview)里。
+不跟库走而钉住的缺省 —— 都在[函数参考](https://shijianjs.github.io/duckfn-open/docs/category/functions)里。
 
 ## 文档
 

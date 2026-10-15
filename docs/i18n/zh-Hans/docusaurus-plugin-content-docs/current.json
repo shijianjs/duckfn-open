@@ -6,5 +6,9 @@
   "sidebar.userGuide.category.Functions": {
     "message": "函数",
     "description": "The label for category 'Functions' in sidebar 'userGuide'"
+  },
+  "sidebar.userGuide.category.Functions.link.generated-index.description": {
+    "message": "扩展注册的每个 SQL 名字，按它接手的东西分组：一个路径、一段内容，或者一个文件名。",
+    "description": "The generated-index page description for category 'Functions' in sidebar 'userGuide'"
   }
 }

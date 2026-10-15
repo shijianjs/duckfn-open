@@ -21,7 +21,7 @@
   },
   "link.item.label.Functions": {
     "message": "函数",
-    "description": "The label of footer link with label=Functions linking to /docs/user-guide/functions/overview"
+    "description": "The label of footer link with label=Functions linking to /docs/category/functions"
   },
   "link.item.label.Quick start": {
     "message": "快速开始",

@@ -2,7 +2,7 @@
   "label": "Functions",
   "position": 3,
   "link": {
-    "type": "doc",
-    "id": "user-guide/functions/overview"
+    "type": "generated-index",
+    "description": "Every SQL name the extension registers, grouped by what it takes: a path, some content, or a file name."
   }
 }

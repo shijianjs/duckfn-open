@@ -247,7 +247,7 @@ const config: Config = {
             },
             {
               label: 'Functions',
-              to: '/docs/user-guide/functions/overview',
+              to: '/docs/category/functions',
             },
           ],
         },

@@ -40,9 +40,13 @@ locale 的输出（英文 `/<repo>/data/x.tsv`、中文 `/<repo>/zh-Hans/data/x.
 抽出来（加了新分类就重跑一次，再把它翻掉）。在 i18n 内容目录下再放一份 `_category_.json` 是无效的。
 
 `_category_.json` 只写三样：`label`、`position`、以及决定「点分类标题打开哪一页」的 `link`。`user-guide/functions`
-这一份的 `link` 指向 `user-guide/functions/overview`（被 `link` 指向的文档会从子项里去掉，所以子项列的是那四页
-函数说明）；不写 `link` 的分类是纯折叠项，标题点不开 —— 那是「目录里没有 index 文档」时的默认行为，不是哪一
-项配置写错了。
+这一份用的是 `generated-index`：Docusaurus 生成一页卡片列表（标题取分类 label，每张卡取各页 front matter 的
+`description`），子项仍是分类下的五页文档。它不写 `slug`，所以地址是 Docusaurus 的默认形式
+`/docs/category/functions`（中文侧 `/zh-Hans/docs/category/functions`）—— 首页、页脚与 README 里指向它的链接都按
+这个地址写，改分类名或挪目录时要一起看。`generated-index` 的 `description` 同样走 `current.json`，键是
+`sidebar.<侧边栏>.category.<label>.link.generated-index.description`。
+
+不写 `link` 的分类是纯折叠项，标题点不开 —— 那是「目录里没有 index 文档」时的默认行为，不是哪一项配置写错了。
 
 **标题里不要写 `{#自定义-id}`**：这份站点没有给 `.md` 启用 heading id 语法，MDX 会把 `{…}` 当成表达式
 解析，`just docs_build` 直接失败（散文标题后面还跟行内代码时尤其容易撞上）。页内互链因此只有一种可靠的

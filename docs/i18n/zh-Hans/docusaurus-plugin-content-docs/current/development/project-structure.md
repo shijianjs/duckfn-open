@@ -225,7 +225,9 @@ pub(crate) struct OpenWriteOptions {
 
 ## 依赖
 
-`Cargo.toml` 里每个 crate 都写了一句它负责什么、为什么选它。决定构建形态的是这几个：
+`Cargo.toml` 里每个 crate 都写了一句它负责什么、为什么选它。决定构建形态的是下面这几个**直接**依赖 ——
+属性宏自己还带着一套展开用的 crate（`duckfn-macro` 走 `darling`、`syn`、`quote`、`proc-macro2`），`quack-rs`
+也牵进 DuckDB 的绑定，所以 `Cargo.lock` 比这份清单长：
 
 - **[duckfn](https://crates.io/crates/duckfn)** —— 把普通 Rust 函数注册进 DuckDB 的属性宏。只开了
   `cli` 这一个 feature（`src/bin/duckfn.rs` 要用）；刻意不开 `all`，因为它会一起打开 `duckdb-1-5`，

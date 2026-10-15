@@ -5,8 +5,7 @@
 `duckfn_open` 把两个成熟的 Rust 库接到 DuckDB SQL 上：[open](https://crates.io/crates/open) 负责把一个路径
 或 URL 交给桌面当前配置好的程序，[sanitize-filename](https://crates.io/crates/sanitize-filename) 负责在一个
 字符串上了结「它能不能当文件名」。两者都不是重写的 —— 各平台的启动方式与参数引用、文件名合法性的那套规则
-都是库自己的，这里只是逐个接口接到 SQL 上。落盘这条路另外用到了 `tempfile` 与 `chrono`，但只在
-`op_write_file` 自动生成的那个名字里面：那是某一个函数内部的一条策略，不是第三个库的能力上了 SQL。
+都是库自己的，这里只是逐个接口接到 SQL 上。
 
 它给 SQL 加的是两步，两步都为了「把东西送到人眼前」：open 那一件事，以及它前面的那一步，因为查询手里躺着的
 大多是**内容**（渲染好的页面、一张图、一份 CSV、BLOB 里的字节），而启动器只认路径：

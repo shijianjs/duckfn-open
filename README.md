@@ -6,9 +6,7 @@
 path or URL to whatever the desktop is configured to open it with, and
 [sanitize-filename](https://crates.io/crates/sanitize-filename), which settles whether a string can be a file
 name. Neither is reimplemented here — the per-platform launchers and their argument quoting, and the rules for
-what a legal file name is, are the crates' own, exposed call for call. Writing content out also leans on
-`tempfile` and `chrono`, but only inside `op_write_file`'s generated name: that is one internal policy of one
-function, not a third crate's API put on SQL.
+what a legal file name is, are the crates' own, exposed call for call.
 
 What it adds to SQL is two steps, both of them "get this in front of a human": open's one job, and the step in
 front of it, because what a query usually holds is *content* (a rendered page, a chart, a CSV, the bytes of an

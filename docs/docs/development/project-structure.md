@@ -255,7 +255,9 @@ rest never say "open" — `op_write_file`, `op_print`, `op_sanitize_filename`.
 ## Dependencies
 
 `Cargo.toml` carries a comment per crate saying what it is for and why it was picked. The choices that
-shape the build:
+shape the build are the **direct** ones — the attribute macros bring their own machinery along
+(`duckfn-macro` expands them through `darling`, `syn`, `quote` and `proc-macro2`) and `quack-rs` brings
+DuckDB's bindings, so `Cargo.lock` is longer than this list:
 
 - **[duckfn](https://crates.io/crates/duckfn)** — the attribute macros that register ordinary Rust
   functions with DuckDB. Only the `cli` feature is on (it is what `src/bin/duckfn.rs` drives); `all` is

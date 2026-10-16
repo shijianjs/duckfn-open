@@ -2,6 +2,11 @@
 
 # duckfn_open
 
+[![DuckDB 1.3+](https://img.shields.io/badge/DuckDB-1.3%2B-fff100?logo=duckdb&style=flat)](https://duckdb.org/)
+[![周下载](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcommunity-extensions.duckdb.org%2Fdownloads-last-week.json&query=%24.duckfn_open&label=%E5%91%A8%E4%B8%8B%E8%BD%BD&color=blue&logo=duckdb&logoColor=a899ff&style=flat)](https://duckdb.org/community_extensions/extensions/duckfn_open)
+[![版本](https://img.shields.io/github/v/release/shijianjs/duckfn-open?style=flat&logo=github&label=%E7%89%88%E6%9C%AC)](https://github.com/shijianjs/duckfn-open/releases)
+[![许可证](https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT-14459b.svg?style=flat&logo=github)](https://github.com/shijianjs/duckfn-open/blob/main/LICENSE)
+
 `duckfn_open` 把两个成熟的 Rust 库接到 DuckDB SQL 上：[open](https://crates.io/crates/open) 负责把一个路径
 或 URL 交给桌面当前配置好的程序，[sanitize-filename](https://crates.io/crates/sanitize-filename) 负责在一个
 字符串上了结「它能不能当文件名」。两者都不是重写的 —— 各平台的启动方式与参数引用、文件名合法性的那套规则

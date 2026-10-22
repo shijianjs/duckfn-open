@@ -98,7 +98,6 @@ that need a decision:
 | `extension.maintainers` | Your GitHub handle. |
 | `repo.github` | `owner/repository`. |
 | `repo.ref` | The **commit SHA** (40 characters) of the released version — `git rev-list -n 1 v0.1.0` — not `main` and not the tag name. A registration points at immutable code, and a build from a branch would claim a development version. |
-| `repo.ref_next` | The commit the registry builds for the **upcoming** DuckDB release: its prerelease leg is gated on this field, and without it that leg is skipped. This extension needs no changes for that engine, so at submission time it can carry the same SHA as `ref` — `community-extension/AGENTS.md` spells the reasoning out. |
 | `docs.hello_world` | A runnable example, rendered into a code block. Do not write `INSTALL` / `LOAD` here: the page adds those itself. The draft in `community-extension/description.yml` gives one call per half of the API — `op_open_commands` and `op_write_file`, neither of which starts a process — then `op_open_path`, and `op_open_path(NULL)` as the row that has no input at all. |
 | `docs.extended_description` | The prose around the function table. |
 

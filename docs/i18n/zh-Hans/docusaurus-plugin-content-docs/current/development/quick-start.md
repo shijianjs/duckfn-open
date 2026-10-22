@@ -27,7 +27,7 @@ flowchart LR
 - **make**（Windows 上要在 Git Bash 里跑）与 **Python 3** —— 官方 DuckDB
   `extension-ci-tools` 的构建 / 测试流程，`just build` 底层就是它（`make configure` + `make debug`），
   `just test` 走的也是同一套。
-- 一个 **DuckDB** 1.3 或更新的可执行文件（`duckdb` 在 `PATH` 里，或者用
+- 一个 **DuckDB** 1.4 或更新的可执行文件（`duckdb` 在 `PATH` 里，或者用
   `just DUCKDB=/path/to/duckdb …` 指定）。
 
 ## 1. 改扩展名

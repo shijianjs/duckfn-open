@@ -164,8 +164,8 @@ function badges(repoUrl: string, locale: string): HeroBadge[] {
   return [
     {
       href: 'https://duckdb.org',
-      src: 'https://img.shields.io/badge/DuckDB-1.3%2B-fff100?logo=duckdb&style=flat',
-      alt: 'DuckDB 1.3 or newer',
+      src: 'https://img.shields.io/badge/DuckDB-1.4%2B-fff100?logo=duckdb&style=flat',
+      alt: 'DuckDB 1.4 or newer',
     },
     {
       href: 'https://duckdb.org/community_extensions/extensions/duckfn_open',
@@ -301,13 +301,13 @@ function featuresContent(): FeaturesContent {
         title: translate({
           id: 'homepage.features.versions.title',
           description: 'Home page feature card title',
-          message: 'DuckDB 1.3 or newer',
+          message: 'DuckDB 1.4 or newer',
         }),
         details: translate({
           id: 'homepage.features.versions.details',
           description: 'Home page feature card description',
           message:
-            "Built against DuckDB's C extension API, so one binary loads into DuckDB 1.3 and later without a recompile.",
+            "Built against DuckDB's C extension API, so one binary loads into DuckDB 1.4 and later without a recompile.",
         }),
       },
     ],

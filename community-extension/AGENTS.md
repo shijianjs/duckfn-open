@@ -20,8 +20,8 @@
 
 **首次提交**：2026-10-15，[#3078](https://github.com/duckdb/community-extensions/pull/3078)。
 `extension.version` 与 `repo.ref` 都指向 **v0.1.0**（`6995c11bb78279aab4caf5b11f3d0df3011fb3a7`）；
-`repo.ref_next` 与 `ref` 同一个提交 —— 本扩展对 DuckDB 2.0 不需要改任何代码。之后每次发版回来改这两处
-（见下面「每次发版都要回来改」）。本文件下面提到的路径与用户名也照本机实际情况核对一遍。
+原先与 `ref` 同一个提交的 `repo.ref_next` 已在 DuckDB 2.0 转正后删除（见下面那节）。之后每次发版回来改
+`ref`（见下面「每次发版都要回来改」）。本文件下面提到的路径与用户名也照本机实际情况核对一遍。
 
 `extension.name` / `version` / `license` / `language` / `build` / `requires_toolchains` 在模板里已经是可直接
 沿用的值（下面一节解释为什么），只有 `name` 要跟着你改名后的扩展名走（`scripts/rename.sh` 会一起改）。
@@ -36,25 +36,15 @@ tag 名**。三者都是合法 git ref、社区仓都能照着 clone，但上游
 间漂移。写 `main` 的代价是实打实的：构建出来的二进制会自称 main 上的开发版本（`X.Y.Z-dev.N`），与这里
 声明的 `version` 对不上，而且同一个注册项在不同时间构建出的是不同代码。
 
-## `repo.ref_next`：下一个大版本那一腿
+## DuckDB 2.0 已转正：`ref` 直接指向 2.0 的提交
 
-社区注册表除了正式版那条腿，还跑一条**预发布**腿（他们的 `build_next.yml`：DuckDB 用
-`v2.0-cyanoptera` 分支、ci-tools 用 `main`、并带 `require_ref_next: true`）。这条腿只认描述文件里的
-`repo.ref_next`：没有这个字段就直接跳过，日志里打一句
-`Skipping prerelease validation: repo.ref_next is not defined` —— 也就是那条 PR 什么都没验证。
+社区注册表现在默认构建 DuckDB 2.0.0，描述文件里不再有 `ref_next`：原先指向 2.0 的那个提交已经提升为
+`repo.ref`，旧 1.5 提交也不再保留 `variegata` 字段（本仓库不再发 1.5 构建）。之后每次发版照旧把
+`repo.ref` 换成新发布提交的 SHA 即可。
 
-本扩展对 2.0 **扩展代码与测试都不用改**（只用 C API 稳定区、也不构建 wasm；本机拿 2.0 引擎把整套
-sqllogictest 跑过是 8/8 全绿，仓库自己的 2.0 腿也是绿的），属上游 `UPDATING.md` 说的 state 1 ——
-所以正式提交时 `ref` 与 `ref_next` 填**同一个发布提交**就行（上游的 `duck_geoarrow`、`duck_hunt`
-就是这么写的）。
+这条扩展从 1.4 起就是二进制兼容的，所以 2.0 的产物在 1.4.x / 1.5.x 上同样能加载；旧版本用户装的
+是同一份 release 资产，不需要单独的 1.5 构建。
 
-本仓还没提交注册，所以现在只是先在这里摆上：`ref_next` 填当前 main 的主提交（`7a666e6`，它的两条腿都
-跑绿了），`ref` 仍是发布时才填的占位符。注意它**不跟着 main 走** —— 它钉的是「跑绿那一次运行所用的提交」，
-后面再有提交也不会自动跟上；要改就按下面的时机来。
-
-改动它的时机：先在本仓 `.github/workflows/MainDistributionPipeline.yml` 的 `duckdb-next-build` 腿下改到
-绿，再把 `ref_next` 换成那次运行的提交 SHA（跑一次 `gh workflow run "Main Extension Distribution
-Pipeline" --ref main`，绿了就把 `git rev-parse HEAD` 那个值填上）。
 
 ## 字段为什么这么写（都不是猜的）
 

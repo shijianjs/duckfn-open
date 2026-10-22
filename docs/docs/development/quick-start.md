@@ -27,7 +27,7 @@ flowchart LR
 - **make** (inside Git Bash on Windows) and **Python 3** — the official DuckDB
   `extension-ci-tools` build/test flow, which `just build` runs under the hood (`make configure` +
   `make debug`). `just test` uses the same flow.
-- A **DuckDB** binary 1.3 or newer (`duckdb` on `PATH`, or point at it with
+- A **DuckDB** binary 1.4 or newer (`duckdb` on `PATH`, or point at it with
   `just DUCKDB=/path/to/duckdb …`).
 
 ## 1. Rename the extension

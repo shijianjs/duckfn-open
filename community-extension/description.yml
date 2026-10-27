@@ -25,6 +25,10 @@ docs:
     -- Most query output is content, not a path: write it out and get the path back
     SELECT op_write_file('{"a":1}', 'json');
   extended_description: |
+    Documentation: [user guide](https://shijianjs.github.io/duckfn-open/docs/intro) ·
+    [function reference](https://shijianjs.github.io/duckfn-open/docs/category/functions) - installation,
+    every function with a runnable example, and the NULL / error rules.
+
     `duckfn_open` wraps two mature Rust crates for SQL: [`open`](https://crates.io/crates/open), which hands a
     path or a URL to whatever the desktop is configured to open it with, and
     [`sanitize-filename`](https://crates.io/crates/sanitize-filename), whose file-name rules it puts on SQL.
@@ -52,6 +56,4 @@ docs:
     the C API is binary compatible across these versions, so the 2.0 release asset is the one to install
     on all of them and there is no separate 1.5 build.
 
-    Documentation: [user guide](https://shijianjs.github.io/duckfn-open/docs/intro) ·
-    [function reference](https://shijianjs.github.io/duckfn-open/docs/category/functions) ·
-    [source and development notes](https://github.com/shijianjs/duckfn-open).
+    Source and development notes: <https://github.com/shijianjs/duckfn-open>.

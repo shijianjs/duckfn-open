@@ -1,0 +1,129 @@
+---
+title: duckfn_open
+description: How to install and use this DuckDB extension, the functions it adds, and where its development guide lives.
+hide_table_of_contents: true
+wrapperClassName: dfk-home
+---
+
+import Link from '@docusaurus/Link';
+import {registerDfkElements} from 'duckfn-docs-kit';
+
+import styles from '@site/src/pages/index.module.css';
+
+{registerDfkElements()}
+
+{/* `MDXPage` supplies the `<Layout>` and the page grid; `dfk-home` is what
+    lets `src/css/home.css` give the page the full width it needs. The badge
+    `href`s carry the repository URL inline because an MDX page cannot read
+    `customFields`. */}
+
+<dfk-hero
+  logo-src="/img/logo.svg"
+  title="duckfn_open"
+  tagline="Open files, reports and web pages from SQL">
+
+<dfk-action kind="primary" href="/docs/user-guide/installation">Get started</dfk-action>
+
+<dfk-action kind="secondary" href="https://github.com/shijianjs/duckfn-open" icon="simple-icons:github">GitHub</dfk-action>
+
+<dfk-badge href="https://duckdb.org" src="https://img.shields.io/badge/DuckDB-1.4%2B-fff100?logo=duckdb&style=flat" alt="DuckDB 1.4 or newer" />
+
+<dfk-badge href="https://duckdb.org/community_extensions/extensions/duckfn_open" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcommunity-extensions.duckdb.org%2Fdownloads-last-week.json&query=%24.duckfn_open&label=Weekly%20Downloads&color=blue&logo=duckdb&logoColor=a899ff&style=flat" alt="Weekly downloads from the DuckDB community extensions" />
+
+<dfk-badge href="https://github.com/shijianjs/duckfn-open/releases" src="https://img.shields.io/github/v/release/shijianjs/duckfn-open?style=flat&logo=github" alt="Latest release" />
+
+<dfk-badge href="https://github.com/shijianjs/duckfn-open/blob/main/LICENSE" src="https://img.shields.io/badge/license-MIT-14459b.svg?style=flat&logo=github" alt="MIT license" />
+
+</dfk-hero>
+
+<dfk-features section-title="What it adds to DuckDB">
+
+<dfk-feature icon="lucide:braces" title="Ordinary SQL functions">
+Nine names and twenty-one signatures, every one of them scalar. Call them in a projection or a WHERE clause, next to DuckDB's own functions.
+</dfk-feature>
+
+<dfk-feature icon="lucide:file-output" title="Content, not only paths">
+Most of what a query produces has no file yet. op_write_file writes it out and returns the path, op_open_content opens it in the same call, op_open_html needs no options at all.
+</dfk-feature>
+
+<dfk-feature icon="lucide:spell-check" title="File names from your data">
+A report title or a customer name is not a file name. op_sanitize_filename rewrites one into a name every platform accepts, and op_sanitize_filename_check answers whether it already is one — a query can count what would change without changing it.
+</dfk-feature>
+
+<dfk-feature icon="lucide:package" title="Two crates, wrapped">
+The launching is the open crate's job and the file-name rules are sanitize-filename's. This extension wires both to SQL rather than reimplementing them, so a call behaves the way the crate does.
+</dfk-feature>
+
+<dfk-feature icon="lucide:monitor-down" title="Windows, Linux and macOS">
+Each release carries one .duckdb_extension per desktop platform, loadable straight from its URL. There is no WebAssembly build — a launcher needs a desktop with someone at it, which is the situation this extension is for: interactive queries, not DuckDB embedded in an application.
+</dfk-feature>
+
+<dfk-feature icon="lucide:shield-check" title="DuckDB 1.4 or newer">
+Built against DuckDB's C extension API, so one binary loads into DuckDB 1.4 and later without a recompile.
+</dfk-feature>
+
+</dfk-features>
+
+<section className={styles.sectionTint}>
+<div className={styles.sectionInner}>
+
+## Install once, then call it from SQL
+
+There is nothing to import at the call site. Install the extension once (left), then call the functions anywhere DuckDB takes a function (right).
+
+<div className={styles.codeGrid}>
+
+```sql title="duckdb"
+-- once per installation, then once per session
+INSTALL duckfn_open FROM community;
+LOAD duckfn_open;
+```
+
+<div className={styles.codeColumn}>
+
+```sql title="duckdb"
+SELECT op_write_file(markdown, 'md');  -- content out to a file, its path back, nothing started
+SELECT op_open_html('<h1>hello</h1>');  -- a temporary .html, opened in the default browser
+SELECT op_sanitize_filename(report_title, '_');  -- a string in, a name every platform accepts out
+SELECT op_open_path('report.html');  -- true once a launcher has been started
+SELECT op_open_commands('report.html');
+-- VARCHAR[]: the launch commands op_open_path would try on this machine, in order
+```
+
+Those trailing comments are the answers. The first two calls take a value that has no file yet, the last two a path that already exists — and the final one only lists the commands a launch would try, without trying any of them. In between, op_sanitize_filename is the one that stays a string: it rewrites a file name, touching neither the disk nor the desktop.
+
+</div>
+</div>
+
+<div className={styles.showcaseLinkRow}>
+<Link className={styles.showcaseLink} to="/docs/category/functions">
+
+The full function reference
+
+<iconify-icon icon="lucide:arrow-right" className={styles.showcaseLinkArrow} aria-hidden="true" />
+
+</Link>
+</div>
+
+</div>
+</section>
+
+<dfk-next-steps section-title="Where to go next">
+
+<dfk-step href="/docs/intro" title="Introduction">
+What duckfn_open adds to DuckDB, in one page.
+</dfk-step>
+
+<dfk-step href="/docs/user-guide/installation" title="Installation">
+The community repository, a release file, or a local build.
+</dfk-step>
+
+<dfk-step href="/docs/category/functions" title="Functions">
+Every function, grouped by what it takes: a path, some content, or a file name.
+</dfk-step>
+
+<dfk-step href="/docs/development/quick-start" title="Development guide">
+Building, testing and releasing the extension from source.
+</dfk-step>
+
+</dfk-next-steps>

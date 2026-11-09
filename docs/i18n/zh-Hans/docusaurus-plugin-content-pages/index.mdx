@@ -1,0 +1,128 @@
+---
+title: duckfn_open
+description: 如何安装并使用这个 DuckDB 扩展、它提供的函数，以及开发指南的位置。
+hide_table_of_contents: true
+wrapperClassName: dfk-home
+---
+
+import Link from '@docusaurus/Link';
+import {registerDfkElements} from 'duckfn-docs-kit';
+
+import styles from '@site/src/pages/index.module.css';
+
+{registerDfkElements()}
+
+{/* `MDXPage` 自带 `<Layout>` 与页面栅格；`dfk-home` 给 `src/css/home.css`
+    一个作用域，把首页放成全宽。徽章的 `href` 内联了仓库地址，因为 MDX 页面
+    读不到 `customFields`。 */}
+
+<dfk-hero
+  logo-src="/img/logo.svg"
+  title="duckfn_open"
+  tagline="在 SQL 里打开文件、报表与网页">
+
+<dfk-action kind="primary" href="/docs/user-guide/installation">开始使用</dfk-action>
+
+<dfk-action kind="secondary" href="https://github.com/shijianjs/duckfn-open" icon="simple-icons:github">GitHub</dfk-action>
+
+<dfk-badge href="https://duckdb.org" src="https://img.shields.io/badge/DuckDB-1.4%2B-fff100?logo=duckdb&style=flat" alt="DuckDB 1.4 or newer" />
+
+<dfk-badge href="https://duckdb.org/community_extensions/extensions/duckfn_open" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcommunity-extensions.duckdb.org%2Fdownloads-last-week.json&query=%24.duckfn_open&label=%E5%91%A8%E4%B8%8B%E8%BD%BD&color=blue&logo=duckdb&logoColor=a899ff&style=flat" alt="DuckDB 社区仓的周下载量" />
+
+<dfk-badge href="https://github.com/shijianjs/duckfn-open/releases" src="https://img.shields.io/github/v/release/shijianjs/duckfn-open?style=flat&logo=github&label=%E7%89%88%E6%9C%AC" alt="Latest release" />
+
+<dfk-badge href="https://github.com/shijianjs/duckfn-open/blob/main/LICENSE" src="https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT-14459b.svg?style=flat&logo=github" alt="MIT license" />
+
+</dfk-hero>
+
+<dfk-features section-title="它给 DuckDB 加了什么">
+
+<dfk-feature icon="lucide:braces" title="就是普通的 SQL 函数">
+九个名字、二十一个签名，全是标量函数。放进投影里、放进 WHERE 里，和 DuckDB 自带的函数一起用。
+</dfk-feature>
+
+<dfk-feature icon="lucide:file-output" title="接的是内容，不只是路径">
+查询产出的东西大多还没有文件。op_write_file 把它写出去、返回路径，op_open_content 在同一次调用里顺手打开，op_open_html 连选项都不用写。
+</dfk-feature>
+
+<dfk-feature icon="lucide:spell-check" title="文件名来自数据本身">
+报表标题、客户名当不了文件名。op_sanitize_filename 把它改写成各平台都认的名字，op_sanitize_filename_check 只回答它本来是不是这样一个名字 —— 于是查询能数出哪些会被改动，而在这层一条都不动。
+</dfk-feature>
+
+<dfk-feature icon="lucide:package" title="包装的是两个成熟库">
+启动那件事是 open 这个库的，文件名的规则是 sanitize-filename 的。这里是把它们接到 SQL 上，而不是各重写一遍，所以一次调用的行为和库本身一致。
+</dfk-feature>
+
+<dfk-feature icon="lucide:monitor-down" title="Windows、Linux 与 macOS">
+每个版本按桌面平台各挂一份 .duckdb_extension，可以直接按 URL 加载。没有 WebAssembly 构建 —— 启动器要的是一台有人的桌面，这正是这个扩展的定位：交互式查询，而不是嵌进应用里的 DuckDB。
+</dfk-feature>
+
+<dfk-feature icon="lucide:shield-check" title="DuckDB 1.4 或更新">
+基于 DuckDB 的 C 扩展 API 构建，一个二进制就能加载进 DuckDB 1.4 及之后的版本，不需要重新编译。
+</dfk-feature>
+
+</dfk-features>
+
+<section className={styles.sectionTint}>
+<div className={styles.sectionInner}>
+
+## 装一次，之后就在 SQL 里调用
+
+调用处不用 import 任何东西。左边装一次，右边就能在任何能写 DuckDB 函数的地方用它。
+
+<div className={styles.codeGrid}>
+
+```sql title="duckdb"
+-- once per installation, then once per session
+INSTALL duckfn_open FROM community;
+LOAD duckfn_open;
+```
+
+<div className={styles.codeColumn}>
+
+```sql title="duckdb"
+SELECT op_write_file(markdown, 'md');  -- content out to a file, its path back, nothing started
+SELECT op_open_html('<h1>hello</h1>');  -- a temporary .html, opened in the default browser
+SELECT op_sanitize_filename(report_title, '_');  -- a string in, a name every platform accepts out
+SELECT op_open_path('report.html');  -- true once a launcher has been started
+SELECT op_open_commands('report.html');
+-- VARCHAR[]: the launch commands op_open_path would try on this machine, in order
+```
+
+后面那些注释就是每次调用的答复：前两个递进去的是一个还没有文件的值，后两个是已经存在的路径 —— 最后一行只列出真去启动时会依次尝试的命令，一条都不尝试。中间那个停在字符串里：op_sanitize_filename 改写的只是文件名，既不碰磁盘，也不碰桌面。
+
+</div>
+</div>
+
+<div className={styles.showcaseLinkRow}>
+<Link className={styles.showcaseLink} to="/docs/category/functions">
+
+完整的函数参考
+
+<iconify-icon icon="lucide:arrow-right" className={styles.showcaseLinkArrow} aria-hidden="true" />
+
+</Link>
+</div>
+
+</div>
+</section>
+
+<dfk-next-steps section-title="接下来去哪">
+
+<dfk-step href="/docs/intro" title="简介">
+一页说清 duckfn_open 给 DuckDB 加了什么。
+</dfk-step>
+
+<dfk-step href="/docs/user-guide/installation" title="安装">
+社区仓、Release 文件，或者本地自己构建的产物。
+</dfk-step>
+
+<dfk-step href="/docs/category/functions" title="函数">
+每个函数，按它接手的东西分组：一个路径、一段内容，或者一个文件名。
+</dfk-step>
+
+<dfk-step href="/docs/development/quick-start" title="开发指南">
+从源码构建、测试与发布这个扩展。
+</dfk-step>
+
+</dfk-next-steps>

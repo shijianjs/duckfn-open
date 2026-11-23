@@ -32,10 +32,12 @@ directory if you would rather not have a site (nothing else in the repository de
    repository; change it to yours.
 2. `tagline` in `docusaurus.config.ts`, plus the copyright line in the footer and in
    `i18n/zh-Hans/docusaurus-theme-classic/footer.json`.
-3. The logo: `static/img/logo.svg` is a placeholder, and the brand palette in `src/css/custom.css` was
-   picked to match it — replace both together, or neither. The kit's `--duckfn-*` tokens (imported at
-   the top of that file) carry the same blue; override them there if your mark uses another colour.
-4. `static/img/docusaurus-social-card.jpg` (the preview image) and `static/img/logo.svg`.
+3. The brand: `static/img/logo.png` is this project's own mark, and the brand palette in
+   `src/css/custom.css` was picked to match it — replace both together, or neither. The kit's
+   `--duckfn-*` tokens (imported at the top of that file) carry the same blue; override them there if
+   your mark uses another colour.
+4. `static/img/docusaurus-social-card.jpg` (the preview image) is still the Docusaurus default; put
+   this project's mark on one before publishing.
 5. The pages under `docs/docs/` and their translations under
    `i18n/zh-Hans/docusaurus-plugin-content-docs/current/`.
 6. Search is built in: `@easyops-cn/docusaurus-search-local` (registered under `themes` in
